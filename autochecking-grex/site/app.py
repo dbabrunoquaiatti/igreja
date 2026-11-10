@@ -1,0 +1,277 @@
+# -*- coding: utf-8 -*-
+import os
+import requests
+from flask import Flask, request, Response
+
+app = Flask(__name__)
+
+GREX_BASE = "https://portal.grex.com.br"
+
+SCRIPT_CSS = r"""
+(function () {
+  if (document.getElementById('grex-estilos-custom')) return;
+  const s = document.createElement('style');
+  s.id = 'grex-estilos-custom';
+  s.textContent = `
+    .side-menu__brand,
+    #app-side-menu-nav,
+    .list__footer,
+    .app-top-bar__inner { display: none !important; }
+
+    .side-menu__brand,
+    .side-menu__brand *,
+    greg-side-menu,
+    app-side-menu {
+      background: transparent !important;
+      background-image: none !important;
+    }
+  `;
+  document.head.appendChild(s);
+})();
+"""
+
+SCRIPT_SONS = r"""
+(function () {
+  if (window.__grexAlertaInstalado) return;
+  window.__grexAlertaInstalado = true;
+
+  let audioCtx = null;
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function tocarTom(freq, dur, tipo, vol, atraso) {
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = tipo; osc.frequency.value = freq; gain.gain.value = vol;
+    osc.connect(gain); gain.connect(ctx.destination);
+    const t = ctx.currentTime + atraso / 1000;
+    osc.start(t); osc.stop(t + dur / 1000);
+  }
+  function tocarSucesso() {
+    tocarTom(523, 100, 'sine', 0.455, 0);
+    tocarTom(659, 100, 'sine', 0.455, 110);
+    tocarTom(784, 220, 'sine', 0.455, 220);
+  }
+  function tocarErro() {
+    tocarTom(300, 220, 'square', 0.455, 0);
+    tocarTom(220, 300, 'square', 0.455, 250);
+  }
+
+  const CSS = `
+    @keyframes grex-fadein { from { opacity:0 } to { opacity:1 } }
+    @keyframes grex-pop    { from { transform:scale(0.88); opacity:0 } to { transform:scale(1); opacity:1 } }
+    @keyframes grex-draw   { to { stroke-dashoffset: 0 } }
+    #grex-overlay {
+      position:fixed; inset:0; z-index:2147483647;
+      animation:grex-fadein 0.28s ease;
+    }
+    .grex-card {
+      width:100%; height:100%;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      text-align:center;
+      animation:grex-pop 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    .grex-card.sucesso { background:#14532d; }
+    .grex-card.erro    { background:#7f1d1d; }
+    .grex-circulo {
+      width:120px; height:120px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      margin-bottom:36px;
+    }
+    .sucesso .grex-circulo { background:#22c55e; }
+    .erro    .grex-circulo { background:#ef4444; }
+    .grex-path {
+      stroke-dasharray:100; stroke-dashoffset:100;
+      animation:grex-draw 0.45s 0.1s ease forwards;
+    }
+    .grex-titulo {
+      color:#fff; font-size:36px; font-weight:700;
+      font-family:sans-serif; margin-bottom:12px;
+    }
+    .grex-sub {
+      color:rgba(255,255,255,0.7); font-size:18px;
+      font-family:sans-serif; margin:0; max-width:480px;
+    }
+    .grex-btn {
+      margin-top:48px; padding:18px 64px; border-radius:999px;
+      border:none; background:#fff; color:#7f1d1d;
+      font-size:20px; font-weight:700; font-family:sans-serif;
+      cursor:pointer; letter-spacing:0.3px;
+    }
+    .grex-btn:active { opacity:0.85; }
+  `;
+
+  function injetarCSS() {
+    if (document.getElementById('grex-overlay-css')) return;
+    const s = document.createElement('style');
+    s.id = 'grex-overlay-css';
+    s.textContent = CSS;
+    document.head.appendChild(s);
+  }
+
+  function fecharOverlay() {
+    const el = document.getElementById('grex-overlay');
+    if (el) el.remove();
+  }
+
+  function limparTexto(raw) {
+    return (raw || '').replace(/\b[a-z]+(?:_[a-z]+)+\b/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function mostrarSucesso() {
+    injetarCSS(); fecharOverlay();
+    const d = document.createElement('div');
+    d.id = 'grex-overlay';
+    d.innerHTML = `
+      <div class="grex-card sucesso">
+        <div class="grex-circulo">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <polyline class="grex-path" pathLength="100"
+              points="12,30 24,42 44,16"
+              stroke="white" stroke-width="5.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="grex-titulo">Check-in realizado!</div>
+        <div class="grex-sub">Fechando em 5 segundos…</div>
+      </div>`;
+    document.body.appendChild(d);
+    setTimeout(fecharOverlay, 5000);
+  }
+
+  function mostrarErro(msg) {
+    injetarCSS(); fecharOverlay();
+    const txt = limparTexto(msg) || 'Tente novamente.';
+    const d = document.createElement('div');
+    d.id = 'grex-overlay';
+    d.innerHTML = `
+      <div class="grex-card erro">
+        <div class="grex-circulo">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <line class="grex-path" pathLength="100"
+              x1="16" y1="16" x2="40" y2="40"
+              stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+            <line class="grex-path" pathLength="100"
+              x1="40" y1="16" x2="16" y2="40"
+              stroke="white" stroke-width="5.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="grex-titulo">Erro no check-in</div>
+        <div class="grex-sub">${txt}</div>
+        <div class="grex-sub" style="margin-top:12px;font-size:13px;opacity:0.5">Fechando em 5 segundos…</div>
+      </div>`;
+    document.body.appendChild(d);
+    setTimeout(fecharOverlay, 5000);
+  }
+
+  let ultimoDisparo = 0;
+  const INTERVALO_MIN_MS = 2000;
+
+  function verificarLabel(el) {
+    const agora = Date.now();
+    if (agora - ultimoDisparo < INTERVALO_MIN_MS) return;
+    const txt = (el.innerText || el.textContent || '').toLowerCase().trim();
+    if (!txt) return;
+    if (txt.includes('sucesso')) {
+      ultimoDisparo = agora;
+      tocarSucesso();
+      mostrarSucesso();
+    } else if (txt.includes('erro') || txt.includes('error') || txt.includes('inv') || txt.includes('nao encontrado') || txt.includes('não encontrado')) {
+      ultimoDisparo = agora;
+      tocarErro();
+      mostrarErro(el.innerText || el.textContent || '');
+    }
+  }
+
+  new MutationObserver((mutacoes) => {
+    for (const m of mutacoes) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.matches && node.matches('.mat-mdc-snack-bar-label')) {
+          verificarLabel(node);
+        }
+        if (node.querySelectorAll) {
+          for (const label of node.querySelectorAll('.mat-mdc-snack-bar-label')) {
+            verificarLabel(label);
+          }
+        }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+})();
+"""
+
+INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}</script>"
+
+HOP_BY_HOP = {
+    'host', 'content-length', 'transfer-encoding', 'connection',
+    'keep-alive', 'proxy-authenticate', 'proxy-authorization',
+    'te', 'trailers', 'upgrade',
+}
+STRIP_RESPONSE = {
+    'content-encoding', 'content-length', 'transfer-encoding', 'connection',
+    'content-security-policy', 'content-security-policy-report-only',
+    'x-frame-options', 'strict-transport-security',
+}
+
+
+def proxy_base():
+    return request.url_root.rstrip('/')
+
+
+def inject_and_rewrite(html_bytes):
+    html = html_bytes.decode('utf-8', errors='replace')
+    html = html.replace(GREX_BASE, proxy_base())
+    pos = html.rfind('</body>')
+    if pos != -1:
+        html = html[:pos] + INJECTION + html[pos:]
+    else:
+        html += INJECTION
+    return html.encode('utf-8')
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
+def proxy(path):
+    url = f"{GREX_BASE}/{path}"
+    if request.query_string:
+        url += '?' + request.query_string.decode('utf-8', errors='replace')
+
+    headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
+
+    try:
+        resp = requests.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        return Response(f"Erro ao conectar com o Grex: {e}", status=502)
+
+    resp_headers = [(k, v) for k, v in resp.headers.items()
+                    if k.lower() not in STRIP_RESPONSE]
+
+    if resp.status_code in (301, 302, 303, 307, 308):
+        resp_headers = [
+            (k, v.replace(GREX_BASE, proxy_base()) if k.lower() == 'location' else v)
+            for k, v in resp_headers
+        ]
+
+    content_type = resp.headers.get('Content-Type', '')
+    if 'text/html' in content_type:
+        return Response(inject_and_rewrite(resp.content), resp.status_code, resp_headers)
+
+    return Response(resp.content, resp.status_code, resp_headers)
+
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
