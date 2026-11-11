@@ -40,48 +40,27 @@ def _ler_credenciais():
 
 GREX_EMAIL, GREX_SENHA = _ler_credenciais()
 
-# ── Tela de loading: cobre a página enquanto o login acontece em background ──
-# Desaparece naturalmente ao navegar para /eventos/check-in (nova carga de página).
-SCRIPT_LOADING = r"""
-(function () {
-  if (window.location.pathname.includes('/eventos/check-in')) return;
-
-  const style = document.createElement('style');
-  style.textContent = `
-    #grex-loading {
-      position: fixed; inset: 0; z-index: 2147483646;
-      background: #0f172a;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 28px;
-    }
-    @keyframes grex-spin { to { transform: rotate(360deg); } }
-    @keyframesgrex-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
-    .grex-ring {
-      width: 72px; height: 72px; border-radius: 50%;
-      border: 5px solid rgba(255,255,255,.08);
-      border-top-color: #22c55e;
-      animation: grex-spin .9s linear infinite;
-    }
-    .grex-loading-label {
-      color: rgba(255,255,255,.5);
-      font: 500 15px/1 sans-serif;
-      letter-spacing: .08em;
-      animation: grex-pulse 2s ease-in-out infinite;
-    }
-  `;
-  document.head.appendChild(style);
-
-  const el = document.createElement('div');
-  el.id = 'grex-loading';
-  el.innerHTML = '<div class="grex-ring"></div><div class="grex-loading-label">Iniciando check-in…</div>';
-
-  if (document.body) {
-    document.body.appendChild(el);
-  } else {
-    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(el));
-  }
-})();
-"""
+# ── Tela de loading: injetada como primeiro filho do <body> pelo servidor ──
+# Aparece imediatamente (sem esperar JS/DOMContentLoaded). Só mostra fora de /eventos/check-in.
+LOADING_HTML = (
+    '<div id="grex-loading" style="display:none;position:fixed;inset:0;'
+    'z-index:2147483646;background:#0f172a;flex-direction:column;'
+    'align-items:center;justify-content:center;gap:28px;">'
+    '<style>'
+    '@keyframes grex-spin{to{transform:rotate(360deg)}}'
+    '@keyframes grex-pulse{0%,100%{opacity:1}50%{opacity:.4}}'
+    '.grex-ring{width:72px;height:72px;border-radius:50%;'
+    'border:5px solid rgba(255,255,255,.08);border-top-color:#22c55e;'
+    'animation:grex-spin .9s linear infinite}'
+    '.grex-loading-label{color:rgba(255,255,255,.5);font:500 15px/1 sans-serif;'
+    'letter-spacing:.08em;animation:grex-pulse 2s ease-in-out infinite}'
+    '</style>'
+    '<div class="grex-ring"></div>'
+    '<div class="grex-loading-label">Iniciando check-in…</div>'
+    "<script>if(!location.pathname.includes('/eventos/check-in'))"
+    "document.getElementById('grex-loading').style.display='flex';</script>"
+    '</div>'
+)
 
 # ── Patch fetch/XHR: intercepta chamadas Firebase e as redireciona pelo proxy ──
 # Deve ser injetado o mais cedo possível (no <head>), antes do Firebase SDK iniciar.
@@ -179,6 +158,7 @@ SCRIPT_SONS = r"""
     #grex-overlay {
       position:fixed; inset:0; z-index:2147483647;
       animation:grex-fadein 0.28s ease;
+      cursor:pointer;
     }
     .grex-card {
       width:100%; height:100%;
@@ -251,6 +231,7 @@ SCRIPT_SONS = r"""
         <div class="grex-titulo">Check-in realizado!</div>
         <div class="grex-sub">Fechando em 5 segundos…</div>
       </div>`;
+    d.addEventListener('click', fecharOverlay);
     document.body.appendChild(d);
     setTimeout(fecharOverlay, 5000);
   }
@@ -276,6 +257,7 @@ SCRIPT_SONS = r"""
         <div class="grex-sub">${txt}</div>
         <div class="grex-sub" style="margin-top:12px;font-size:13px;opacity:0.5">Fechando em 5 segundos…</div>
       </div>`;
+    d.addEventListener('click', fecharOverlay);
     document.body.appendChild(d);
     setTimeout(fecharOverlay, 5000);
   }
@@ -352,8 +334,8 @@ SCRIPT_AUTOLOGIN = """
     return;
   }}
 
-  // Aguarda o modal de briefing aparecer, fecha e só então navega após 3s.
-  // Se o modal nunca aparecer, navega após timeout de segurança.
+  // Aguarda briefing aparecer → fecha → 3s → navega.
+  // Fallback: se não aparecer em 12s, navega de qualquer forma.
   function aguardarBriefingENavegar() {{
     let navegou = false;
     function navegar() {{
@@ -361,20 +343,18 @@ SCRIPT_AUTOLOGIN = """
       navegou = true;
       setTimeout(irParaCheckin, 3000);
     }}
-    const obsModal = new MutationObserver(() => {{
+    const obs = new MutationObserver(() => {{
       const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
-      if (btn && btn.offsetParent !== null) {{
-        obsModal.disconnect();
-        btn.click();
-        navegar();
-      }}
+      if (btn && btn.offsetParent !== null) {{ obs.disconnect(); btn.click(); navegar(); }}
     }});
-    obsModal.observe(document.body, {{childList: true, subtree: true}});
-    // Fallback: se o modal não aparecer em 12s, navega de qualquer forma
-    setTimeout(() => {{ obsModal.disconnect(); navegar(); }}, 12000);
+    obs.observe(document.body, {{childList: true, subtree: true}});
+    setTimeout(() => {{ obs.disconnect(); navegar(); }}, 12000);
   }}
 
-  function tentarLogin() {{
+  // Tenta preencher e submeter o formulário de login.
+  // Retorna true se o formulário foi encontrado e submetido.
+  // onSucesso é chamado após o clique (para iniciar aguardarBriefingENavegar).
+  function executarLogin(onSucesso) {{
     const campoEmail = document.querySelector('#login-email-desktop');
     const campoSenha = document.querySelector('#login-password-desktop');
     if (!campoEmail || !campoSenha) return false;
@@ -385,21 +365,33 @@ SCRIPT_AUTOLOGIN = """
     const btn = [...document.querySelectorAll('button')].find(b =>
       b.textContent.trim().toLowerCase().includes('entrar')
     );
-    if (btn) {{
-      setTimeout(() => {{
-        btn.click();
-        aguardarBriefingENavegar();
-      }}, 400);
-    }}
+    if (btn) setTimeout(() => {{ btn.click(); if (onSucesso) onSucesso(); }}, 400);
     return true;
   }}
 
-  if (!tentarLogin()) {{
-    const obs = new MutationObserver(() => {{ if (tentarLogin()) obs.disconnect(); }});
-    obs.observe(document.body, {{childList: true, subtree: true}});
-    // Sessão já ativa (sem formulário): navega direto após 3s
-    setTimeout(() => {{ obs.disconnect(); irParaCheckin(); }}, 3000);
+  // Ciclo de login com retry a cada 6s caso ainda esteja na página de login.
+  function cicloLogin() {{
+    function tentativa() {{
+      if (window.location.pathname.includes('/eventos/check-in')) return;
+      if (!executarLogin(aguardarBriefingENavegar)) {{
+        // Formulário ainda não apareceu: aguarda no DOM
+        const obs = new MutationObserver(() => {{
+          if (executarLogin(aguardarBriefingENavegar)) obs.disconnect();
+        }});
+        obs.observe(document.body, {{childList: true, subtree: true}});
+        // Se formulário nunca aparecer (sessão ativa), navega direto após 3s
+        setTimeout(() => {{ obs.disconnect(); irParaCheckin(); }}, 3000);
+        return;
+      }}
+      // Formulário foi encontrado e clicado; se após 6s ainda aqui, tenta de novo
+      setTimeout(() => {{
+        if (!window.location.pathname.includes('/eventos/check-in')) tentativa();
+      }}, 6000);
+    }}
+    tentativa();
   }}
+
+  cicloLogin();
 }})();
 """.format(
     email=repr(GREX_EMAIL),
@@ -407,7 +399,7 @@ SCRIPT_AUTOLOGIN = """
 )
 
 BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
-HEAD_INJECTION = f"<script>{SCRIPT_LOADING}\n{SCRIPT_FIREBASE_PROXY}</script>"
+HEAD_INJECTION = f"<script>{SCRIPT_FIREBASE_PROXY}</script>"
 
 HOP_BY_HOP = {
     'host', 'content-length', 'transfer-encoding', 'connection',
@@ -434,6 +426,12 @@ def inject_and_rewrite(html_bytes):
     if head_pos != -1:
         insert = head_pos + len('<head>')
         html = html[:insert] + HEAD_INJECTION + html[insert:]
+
+    # Loading overlay injetado como primeiro filho do <body> — aparece imediatamente
+    body_open = html.find('<body')
+    if body_open != -1:
+        body_close = html.find('>', body_open) + 1
+        html = html[:body_close] + LOADING_HTML + html[body_close:]
 
     # Demais scripts vão no fim do <body>
     body_pos = html.rfind('</body>')
