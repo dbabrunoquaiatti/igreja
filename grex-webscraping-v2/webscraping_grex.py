@@ -4,6 +4,8 @@ Script de web scraping para GREX - Automação de login e download de participan
 """
 
 import os
+import shutil
+import subprocess
 import time
 from pathlib import Path
 from dotenv import load_dotenv
@@ -17,29 +19,41 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 
+CHROME_BIN = "/usr/bin/chromium"
+CHROMEDRIVER_BIN = "/usr/bin/chromedriver"
+CHROME_PROFILE_DIR = "/tmp/chrome-profile"
+CHROMEDRIVER_LOG = "/tmp/chromedriver.log"
+
 
 def setup_driver():
     """Configura o driver do Chrome com opções de download"""
+    # Diagnóstico: versão do Chromium
+    try:
+        result = subprocess.run([CHROME_BIN, "--version"],
+                                capture_output=True, text=True, timeout=10)
+        print(f"🔍 {(result.stdout or result.stderr).strip()}")
+    except Exception as e:
+        print(f"⚠️ Não foi possível verificar Chromium ({CHROME_BIN}): {e}")
+
     # Criar pasta data se não existir
     data_folder = Path("data")
     data_folder.mkdir(exist_ok=True)
 
+    # Limpar perfil do Chrome entre execuções (evita conflito de lock)
+    shutil.rmtree(CHROME_PROFILE_DIR, ignore_errors=True)
+    os.makedirs(CHROME_PROFILE_DIR, exist_ok=True)
+
     chrome_options = Options()
+    chrome_options.binary_location = CHROME_BIN
 
-    # Configurar para usar Chromium do sistema (Docker/Linux)
-    chrome_options.binary_location = "/usr/bin/chromium"
-
-    # Configurar preferências de download
     prefs = {
         "download.default_directory": str(data_folder.absolute()),
         "download.prompt_for_download": False,
         "safebrowsing.enabled": False,
         "plugins.always_open_pdf_externally": True
     }
-
     chrome_options.add_experimental_option("prefs", prefs)
 
-    # Suprimir logs do Chrome/Chromium
     chrome_options.add_argument("--disable-logging")
     chrome_options.add_argument("--disable-component-update")
     chrome_options.add_argument("--disable-sync")
@@ -52,23 +66,20 @@ def setup_driver():
     chrome_options.add_argument("--disable-sync-preferences")
     chrome_options.add_argument("--metrics-recording-only")
 
-    # Desabilitar GCM completamente
-    prefs["enable-features"] = "NetworkService,NetworkServiceInProcess"
-    prefs["disable-component-update"] = True
-
-    # Essencial para rodar em Docker (especialmente como não-root)
+    # Essencial para rodar em Docker como não-root
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-setuid-sandbox")
-    chrome_options.add_argument("--no-zygote")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--user-data-dir=/tmp/chrome-data")
-    chrome_options.add_argument("--disable-web-resources")
+    chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
     chrome_options.add_argument("--no-first-run")
+    chrome_options.add_argument("--remote-debugging-port=0")
 
-    # Inicializar driver (usar chromedriver do sistema)
-    service = Service("/usr/bin/chromedriver")
+    service = Service(
+        CHROMEDRIVER_BIN,
+        service_args=["--verbose", f"--log-path={CHROMEDRIVER_LOG}"]
+    )
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     return driver
@@ -447,6 +458,16 @@ def main():
             time.sleep(2)
             driver.quit()
             print("🔚 Navegador fechado")
+        # Exibir log do ChromeDriver para diagnóstico em caso de falha
+        if os.path.exists(CHROMEDRIVER_LOG):
+            try:
+                with open(CHROMEDRIVER_LOG) as _f:
+                    lines = _f.readlines()
+                if lines:
+                    print("=== ChromeDriver Log (últimas 40 linhas) ===")
+                    print("".join(lines[-40:]))
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
