@@ -179,8 +179,6 @@ def login(driver, email, password):
               f"pwd filled={info['pwdFilled']}, "
               f"btn disabled={info['btnDisabled']} text={repr(info['btnText'])}")
 
-        driver.save_screenshot("/app/data/login_presubmit.png")
-
         print("🖱️  Clicando no botão submit...")
         try:
             submit_btn = WebDriverWait(driver, 5).until(
@@ -201,7 +199,6 @@ def login(driver, email, password):
         print("✅ Login realizado com sucesso!")
 
     except Exception as e:
-        driver.save_screenshot("/app/data/login_debug.png")
         print(f"❌ Erro ao fazer login: {e}")
         print(f"   URL atual: {driver.current_url}")
         try:
@@ -226,10 +223,8 @@ def navigate_to_participants(driver, url):
         wait = WebDriverWait(driver, 15)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".list-page-header")))
         time.sleep(1)
-        driver.save_screenshot("/tmp/grex_debug_page_loaded.png")
         print("✅ Página de participantes carregada!")
     except Exception as e:
-        driver.save_screenshot("/tmp/grex_debug_page_error.png")
         print(f"❌ Erro ao navegar: {e}")
         raise
 
@@ -259,14 +254,11 @@ def click_export_button(driver):
                 break
 
         if not export_button:
-            driver.save_screenshot("/tmp/grex_debug_no_button.png")
             raise Exception("Botão de exportação não encontrado")
 
         # Rolar até o elemento
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", export_button)
         time.sleep(0.5)
-
-        driver.save_screenshot("/tmp/grex_debug_before_click.png")
 
         # Tentar JS click primeiro, ActionChains como fallback
         try:
@@ -377,9 +369,6 @@ def confirm_export(driver):
 
     try:
         time.sleep(1)  # Aguardar modal finalizar animação
-
-        # Tirar screenshot para debug
-        driver.save_screenshot("/tmp/grex_confirm_button_debug.png")
 
         # Procurar por qualquer botão
         buttons = driver.find_elements(By.CSS_SELECTOR, "button")
