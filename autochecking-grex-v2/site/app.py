@@ -309,6 +309,13 @@ def proxy(path):
     headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
     headers['Accept-Encoding'] = 'gzip, deflate'  # evita brotli que requests não descomprime
 
+    # Firebase bloqueia requisições cujo Referer/Origin não está na lista de domínios autorizados.
+    # Substituímos o domínio do proxy pelo domínio real antes de encaminhar.
+    proxy_origin = request.host_url.rstrip('/')
+    for hdr in ('referer', 'origin'):
+        if hdr in headers:
+            headers[hdr] = headers[hdr].replace(proxy_origin, GREX_BASE)
+
     try:
         resp = requests.request(
             method=request.method,
