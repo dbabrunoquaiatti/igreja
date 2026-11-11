@@ -109,6 +109,9 @@ def setup_driver():
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
     chrome_options.add_argument("--no-first-run")
     chrome_options.add_argument("--remote-debugging-port=0")
+    # Chromium 156+ (Debian trixie): crashpad handler falha sem --database → Chrome sai
+    chrome_options.add_argument("--disable-crash-reporter")
+    chrome_options.add_argument("--disable-features=CrashReporter")
 
     service = Service(
         CHROMEDRIVER_BIN,
