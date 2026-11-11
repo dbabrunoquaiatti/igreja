@@ -309,6 +309,28 @@ SCRIPT_AUTOLOGIN = """
     return;
   }}
 
+  // Aguarda o modal de briefing aparecer, fecha e só então navega após 3s.
+  // Se o modal nunca aparecer, navega após timeout de segurança.
+  function aguardarBriefingENavegar() {{
+    let navegou = false;
+    function navegar() {{
+      if (navegou) return;
+      navegou = true;
+      setTimeout(irParaCheckin, 3000);
+    }}
+    const obsModal = new MutationObserver(() => {{
+      const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
+      if (btn && btn.offsetParent !== null) {{
+        obsModal.disconnect();
+        btn.click();
+        navegar();
+      }}
+    }});
+    obsModal.observe(document.body, {{childList: true, subtree: true}});
+    // Fallback: se o modal não aparecer em 12s, navega de qualquer forma
+    setTimeout(() => {{ obsModal.disconnect(); navegar(); }}, 12000);
+  }}
+
   function tentarLogin() {{
     const campoEmail = document.querySelector('#login-email-desktop');
     const campoSenha = document.querySelector('#login-password-desktop');
@@ -323,18 +345,16 @@ SCRIPT_AUTOLOGIN = """
     if (btn) {{
       setTimeout(() => {{
         btn.click();
-        // Delay fixo após clique: aguarda resposta do servidor e navega
-        setTimeout(irParaCheckin, 3500);
+        aguardarBriefingENavegar();
       }}, 400);
     }}
     return true;
   }}
 
   if (!tentarLogin()) {{
-    // Sem formulário de login: sessão já ativa, navega direto
     const obs = new MutationObserver(() => {{ if (tentarLogin()) obs.disconnect(); }});
     obs.observe(document.body, {{childList: true, subtree: true}});
-    // Se após 3s ainda não apareceu formulário, já está logado → navega
+    // Sessão já ativa (sem formulário): navega direto após 3s
     setTimeout(() => {{ obs.disconnect(); irParaCheckin(); }}, 3000);
   }}
 }})();
