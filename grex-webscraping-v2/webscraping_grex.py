@@ -143,16 +143,35 @@ def login(driver, email, password):
         password_field.send_keys(password)
 
         print("🖱️  Enviando login...")
-        form = driver.find_element(By.CSS_SELECTOR, "form")
-        form.submit()
+        # form.submit() ignora Angular event handlers — usar click no botão
+        submit_clicked = False
+        for sel in [
+            "button[type='submit']",
+            "form button",
+            "button.btn--primary",
+            "input[type='submit']",
+        ]:
+            btns = driver.find_elements(By.CSS_SELECTOR, sel)
+            if btns:
+                driver.execute_script("arguments[0].click();", btns[0])
+                submit_clicked = True
+                print(f"   Submit via: {sel}")
+                break
 
-        # Único timeout: aguardar redirecionamento
-        wait = WebDriverWait(driver, 10)
+        if not submit_clicked:
+            # fallback: submit nativo
+            driver.find_element(By.CSS_SELECTOR, "form").submit()
+            print("   Submit via form.submit() (fallback)")
+
+        # Aguardar redirecionamento (20s — angular pode ser lento)
+        wait = WebDriverWait(driver, 20)
         wait.until(lambda d: "login" not in d.current_url)
         print("✅ Login realizado com sucesso!")
 
     except Exception as e:
+        driver.save_screenshot("/app/data/login_debug.png")
         print(f"❌ Erro ao fazer login: {e}")
+        print(f"   URL atual: {driver.current_url}")
         print("💡 Dica: Verifique se as credenciais estão corretas")
         raise
 
