@@ -22,7 +22,7 @@ services:
 
     # Health check
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/index.html"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/index.html')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -71,8 +71,8 @@ services:
 #     depends_on:
 #       - chrome
 #     environment:
-#       GREX_EMAIL: ${GREX_EMAIL:-quaiattibruno@gmail.com}
-#       GREX_PASSWORD: ${GREX_PASSWORD:-Temp#2032435@}
+#       GREX_EMAIL: ${GREX_EMAIL}
+#       GREX_PASSWORD: ${GREX_PASSWORD}
 #       SELENIUM_GRID_URL: http://selenium-hub:4444
 #     volumes:
 #       - ./data:/app/data

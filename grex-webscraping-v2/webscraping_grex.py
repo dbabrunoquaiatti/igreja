@@ -58,10 +58,8 @@ def setup_driver():
 
     # Essencial para rodar em Docker
     chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--disable-setuid-sandbox")
     chrome_options.add_argument("--disable-web-resources")
     chrome_options.add_argument("--no-first-run")
 
@@ -112,10 +110,10 @@ def navigate_to_participants(driver, url):
         wait = WebDriverWait(driver, 15)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".list-page-header")))
         time.sleep(1)
-        driver.save_screenshot("data/debug_page_loaded.png")
-        print("✅ Página de participantes carregada! (screenshot: data/debug_page_loaded.png)")
+        driver.save_screenshot("/tmp/grex_debug_page_loaded.png")
+        print("✅ Página de participantes carregada!")
     except Exception as e:
-        driver.save_screenshot("data/debug_page_error.png")
+        driver.save_screenshot("/tmp/grex_debug_page_error.png")
         print(f"❌ Erro ao navegar: {e}")
         raise
 
@@ -145,16 +143,14 @@ def click_export_button(driver):
                 break
 
         if not export_button:
-            driver.save_screenshot("data/debug_no_button.png")
-            print("📸 Screenshot salvo: data/debug_no_button.png")
+            driver.save_screenshot("/tmp/grex_debug_no_button.png")
             raise Exception("Botão de exportação não encontrado")
 
         # Rolar até o elemento
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", export_button)
         time.sleep(0.5)
 
-        driver.save_screenshot("data/debug_before_click.png")
-        print("📸 Screenshot salvo: data/debug_before_click.png")
+        driver.save_screenshot("/tmp/grex_debug_before_click.png")
 
         # Tentar JS click primeiro, ActionChains como fallback
         try:
@@ -267,8 +263,7 @@ def confirm_export(driver):
         time.sleep(1)  # Aguardar modal finalizar animação
 
         # Tirar screenshot para debug
-        driver.save_screenshot("data/confirm_button_debug.png")
-        print("📸 Screenshot salvo em data/confirm_button_debug.png")
+        driver.save_screenshot("/tmp/grex_confirm_button_debug.png")
 
         # Procurar por qualquer botão
         buttons = driver.find_elements(By.CSS_SELECTOR, "button")
@@ -410,10 +405,10 @@ def main():
     print("🚀 INICIANDO AUTOMAÇÃO GREX")
     print("=" * 60)
 
-    # CREDENCIAIS - ⚠️ NÃO DEIXAR HARDCODED EM PRODUÇÃO!
-    # Use variáveis de ambiente: os.getenv("GREX_EMAIL"), os.getenv("GREX_PASSWORD")
-    email = "quaiattibruno@gmail.com"
-    password = "Temp#2032435@"
+    email = os.getenv("GREX_EMAIL")
+    password = os.getenv("GREX_PASSWORD")
+    if not email or not password:
+        raise ValueError("GREX_EMAIL e GREX_PASSWORD devem estar definidos nas variáveis de ambiente.")
 
     driver = None
 

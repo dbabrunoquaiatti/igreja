@@ -9,7 +9,9 @@
     <title id="pageDocTitle"></title>
     <link rel="icon" type="image/png" href="imgs/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+            integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+            crossorigin="anonymous"></script>
     <script>document.write('<script src="config.js?v=' + Date.now() + '"><\/script>');</script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1604,6 +1606,15 @@
     </script>
 
     <script>
+        function esc(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;');
+        }
+
         let allData = [];
         let dadosFiltrados = [];
         let fileModificationTime = null;
@@ -1692,9 +1703,11 @@
 
         // Carrega um arquivo Excel e retorna as linhas mapeadas, ou null se não existir
         async function carregarArquivoExcel(filename, overrides) {
-            let response = await fetch(`./data/${filename}`).catch(() => null);
+            const token = window.CONFIG && window.CONFIG.PANEL_TOKEN;
+            const fetchOpts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : {};
+            let response = await fetch(`./data/${filename}`, fetchOpts).catch(() => null);
             if (!response || !response.ok) {
-                response = await fetch(`/data/${filename}`).catch(() => null);
+                response = await fetch(`/data/${filename}`, fetchOpts).catch(() => null);
             }
             if (!response || !response.ok) return null;
 
@@ -1793,9 +1806,11 @@
             try {
                 console.debug('🔄 Tentando carregar cronograma.xlsx...');
 
-                let response = await fetch('./data/cronograma.xlsx').catch(() => null);
+                const token = window.CONFIG && window.CONFIG.PANEL_TOKEN;
+                const fetchOpts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : {};
+                let response = await fetch('./data/cronograma.xlsx', fetchOpts).catch(() => null);
                 if (!response) {
-                    response = await fetch('/data/cronograma.xlsx').catch(() => null);
+                    response = await fetch('/data/cronograma.xlsx', fetchOpts).catch(() => null);
                 }
 
                 if (!response || !response.ok) {
@@ -2274,9 +2289,9 @@
                 const renderCorCol = (valor) => {
                     const valorStr = String(valor || '').trim();
                     if (valorStr.toUpperCase() === 'TODOS') {
-                        return `<td><span class="status-badge presenca-nao" style="background-color: #1f2937;">${valorStr}</span></td>`;
+                        return `<td><span class="status-badge presenca-nao" style="background-color: #1f2937;">${esc(valorStr)}</span></td>`;
                     }
-                    return `<td>${valorStr}</td>`;
+                    return `<td>${esc(valorStr)}</td>`;
                 };
 
                 // Função para formatar time objects corretamente
@@ -2340,8 +2355,8 @@
                 const duracao = formatarHora(item.duracao);
 
                 return `<tr>
-                    <td>${item.nome}</td><td style="${diaFundo}">${item.dia}</td><td>${inicio}</td><td>${fim}</td>
-                    <td>${duracao}</td>${renderCorCol(item.laranja)}${renderCorCol(item.amarelo)}${renderCorCol(item.verde)}${renderCorCol(item.rosa)}<td>${item.obs}</td>
+                    <td>${esc(item.nome)}</td><td style="${esc(diaFundo)}">${esc(item.dia)}</td><td>${esc(inicio)}</td><td>${esc(fim)}</td>
+                    <td>${esc(duracao)}</td>${renderCorCol(item.laranja)}${renderCorCol(item.amarelo)}${renderCorCol(item.verde)}${renderCorCol(item.rosa)}<td>${esc(item.obs)}</td>
                 </tr>`;
             }).join('');
         }
@@ -2449,8 +2464,8 @@
             const _discServos = (window.CONFIG.SERVOS || 'S').toUpperCase() !== 'N';
             const _discConvidados = (window.CONFIG.CONVIDADOS || 'S').toUpperCase() !== 'N';
             grid.innerHTML = sortedMetrics.map(metric => `
-                <div class="discipulado-card" onclick="navegarParaDadosFiltrado('${metric.nome.replace(/'/g, "\\'")}')">
-                    <div class="discipulado-title">${metric.nome}</div>
+                <div class="discipulado-card" data-disc="${esc(metric.nome)}">
+                    <div class="discipulado-title">${esc(metric.nome)}</div>
                     <div class="discipulado-metrics">
                         <div class="metric-item"><div class="metric-label">Pagos</div><div class="metric-value paid">${metric.pagos}</div></div>
                         <div class="metric-item"><div class="metric-label">Pendentes</div><div class="metric-value pending">${metric.pendentes}</div></div>
@@ -2462,6 +2477,9 @@
                     </div>
                 </div>
             `).join('');
+            grid.querySelectorAll('.discipulado-card').forEach(card => {
+                card.addEventListener('click', () => navegarParaDadosFiltrado(card.dataset.disc));
+            });
         }
 
         function calcularMetricasPorRede() {
@@ -2511,7 +2529,7 @@
             const _redeConvidados = (window.CONFIG.CONVIDADOS || 'S').toUpperCase() !== 'N';
             grid.innerHTML = sortedMetrics.map(metric => `
                 <div class="discipulado-card">
-                    <div class="discipulado-title">${metric.nome}</div>
+                    <div class="discipulado-title">${esc(metric.nome)}</div>
                     <div class="discipulado-metrics">
                         <div class="metric-item"><div class="metric-label">Pagos</div><div class="metric-value paid">${metric.pagos}</div></div>
                         <div class="metric-item"><div class="metric-label">Pendentes</div><div class="metric-value pending">${metric.pendentes}</div></div>
@@ -2573,7 +2591,7 @@
                 } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
                     statusBadge = '<span class="status-badge status-rejected">Rejeitado</span>';
                 } else {
-                    statusBadge = `<span class="status-badge status-pending">${item.statusPagamento}</span>`;
+                    statusBadge = `<span class="status-badge status-pending">${esc(item.statusPagamento)}</span>`;
                 }
 
                 // Formatar data: DD/MM HH:MI
@@ -2625,17 +2643,17 @@
 
                 // Celular com WhatsApp
                 const celularComWhats = `<div class="celular-with-whats">
-                    <span>${celularMasked}</span>
-                    <a href="${whatsappUrl}" target="_blank" class="whats-link" title="Enviar mensagem no WhatsApp">
+                    <span>${esc(celularMasked)}</span>
+                    <a href="${esc(whatsappUrl)}" target="_blank" class="whats-link" title="Enviar mensagem no WhatsApp">
                         <img src="imgs/whatsapp.png" alt="WhatsApp">
                     </a>
                 </div>`;
 
                 return `<tr>
-                    <td>${item.nome}</td><td>${item.idade}</td><td>${celularComWhats}</td>
-                    <td>${item.discipulador}</td><td>${item.lider}</td><td>${item.tipoInscricao}</td>
+                    <td>${esc(item.nome)}</td><td>${esc(item.idade)}</td><td>${celularComWhats}</td>
+                    <td>${esc(item.discipulador)}</td><td>${esc(item.lider)}</td><td>${esc(item.tipoInscricao)}</td>
                     <td>${statusBadge}</td>
-                    <td>${metodoTraduzido}</td><td>${presencaBadge}</td><td>${dataFormatada}</td>
+                    <td>${esc(metodoTraduzido)}</td><td>${presencaBadge}</td><td>${esc(dataFormatada)}</td>
                     <td>${isDuplicado ? '<span class="duplicado-badge">Sim</span>' : '-'}</td>
                 </tr>`;
             }).join('');
@@ -2780,15 +2798,15 @@
                 const presOk = isPresente(item.presenca);
                 return '<tr>' +
                     '<td class="num">' + (idx + 1) + '</td>' +
-                    '<td><strong>' + (item.nome || '') + '</strong></td>' +
-                    '<td>' + (item.idade || '') + '</td>' +
-                    '<td>' + (item.celular || '') + '</td>' +
-                    '<td>' + (item.discipulador || '') + '</td>' +
-                    '<td>' + (item.lider || '') + '</td>' +
-                    '<td><span class="badge ' + st.cls + '">' + st.label + '</span></td>' +
-                    '<td>' + (item.formaPagamento || '') + '</td>' +
+                    '<td><strong>' + esc(item.nome) + '</strong></td>' +
+                    '<td>' + esc(item.idade) + '</td>' +
+                    '<td>' + esc(item.celular) + '</td>' +
+                    '<td>' + esc(item.discipulador) + '</td>' +
+                    '<td>' + esc(item.lider) + '</td>' +
+                    '<td><span class="badge ' + esc(st.cls) + '">' + esc(st.label) + '</span></td>' +
+                    '<td>' + esc(item.formaPagamento) + '</td>' +
                     '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
-                    '<td>' + formatarData(item.dataInscricao) + '</td>' +
+                    '<td>' + esc(formatarData(item.dataInscricao)) + '</td>' +
                     '</tr>';
             }).join('')}
         </tbody>
@@ -3009,8 +3027,8 @@
                 <div class="sorteio-ganhador-item">
                     <div class="sorteio-ganhador-num">${i + 1}</div>
                     <div class="sorteio-ganhador-info">
-                        <div class="sorteio-ganhador-nome">${g.nome}</div>
-                        ${g.discipulador ? `<div class="sorteio-ganhador-disc">Discipulado de ${g.discipulador}</div>` : ''}
+                        <div class="sorteio-ganhador-nome">${esc(g.nome)}</div>
+                        ${g.discipulador ? `<div class="sorteio-ganhador-disc">Discipulado de ${esc(g.discipulador)}</div>` : ''}
                     </div>
                 </div>
             `).join('');

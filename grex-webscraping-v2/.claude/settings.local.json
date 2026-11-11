@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 *)",
+      "Bash(curl -s https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js)",
+      "Bash(openssl dgst *)",
+      "Bash(openssl base64 *)",
+      "Bash(curl -s \"https://hub.docker.com/v2/repositories/library/python/tags/3.11-slim\")",
+      "Bash(curl -s -H \"Accept: application/vnd.docker.distribution.manifest.v2+json\" \"https://registry-1.docker.io/v2/library/python/manifests/3.11-slim\" -D -)",
+      "Bash(curl -s \"https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/python:pull\")",
+      "Bash(git -C C:/Users/brunoquaiatti/Documents/GitHub/igreja ls-files --error-unmatch grex-webscraping-v2/.env)"
+    ]
+  }
+}

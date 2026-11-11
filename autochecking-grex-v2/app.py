@@ -1,9 +1,40 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
+import json
+import base64
+import secrets
 import requests
 from flask import Flask, request, Response
 
 app = Flask(__name__)
+
+_PROXY_USER = os.environ.get('PROXY_USER', 'admin')
+_PROXY_PASS = os.environ.get('PROXY_PASS', '')
+
+if not _PROXY_PASS:
+    _PROXY_PASS = secrets.token_urlsafe(16)
+    print(
+        f'\n[AVISO] PROXY_PASS não definido. Token temporário gerado automaticamente:\n'
+        f'  Usuário : {_PROXY_USER}\n'
+        f'  Senha   : {_PROXY_PASS}\n'
+        f'  Defina PROXY_PASS na variável de ambiente para fixar uma senha permanente.\n',
+        file=sys.stderr, flush=True,
+    )
+
+@app.before_request
+def _proxy_auth():
+    auth = request.headers.get('Authorization', '')
+    if auth.startswith('Basic '):
+        try:
+            user, pwd = base64.b64decode(auth[6:]).decode('utf-8').split(':', 1)
+            if user == _PROXY_USER and pwd == _PROXY_PASS:
+                return
+        except Exception:
+            pass
+    resp = Response('Unauthorized', 401)
+    resp.headers['WWW-Authenticate'] = 'Basic realm="Grex Proxy"'
+    return resp
 
 GREX_BASE = "https://portal.grex.com.br"
 
@@ -299,76 +330,75 @@ SCRIPT_SONS = r"""
 })();
 """
 
-SCRIPT_AUTOLOGIN = """
-(function () {{
+SCRIPT_AUTOLOGIN = r"""
+(function () {
   if (window.__grexAutoLogin) return;
   window.__grexAutoLogin = true;
-  const EMAIL = {email};
-  const SENHA = {senha};
 
-  function setVal(el, val) {{
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    setter.call(el, val);
-    el.dispatchEvent(new Event('input', {{bubbles: true}}));
-    el.dispatchEvent(new Event('change', {{bubbles: true}}));
-  }}
-
-  function irParaCheckin() {{
+  function irParaCheckin() {
     if (!location.pathname.includes('/eventos/check-in'))
       location.href = '/eventos/check-in';
-  }}
+  }
 
-  // Já está na página certa: encerra
   if (location.pathname.includes('/eventos/check-in')) return;
 
   let loginSubmetido = false;
   let navegacaoPendente = false;
 
-  // Sempre que o briefing aparecer: fecha e agenda navegação
-  new MutationObserver(() => {{
+  new MutationObserver(() => {
     const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
-    if (btn && btn.offsetParent !== null && !navegacaoPendente) {{
+    if (btn && btn.offsetParent !== null && !navegacaoPendente) {
       navegacaoPendente = true;
       btn.click();
       setTimeout(irParaCheckin, 3000);
-    }}
-  }}).observe(document.body, {{childList: true, subtree: true}});
+    }
+  }).observe(document.body, {childList: true, subtree: true});
 
-  // Polling a cada 1,5s: tenta login sempre que o formulário estiver visível
-  // e nenhum submit estiver pendente.
-  const poll = setInterval(() => {{
-    if (location.pathname.includes('/eventos/check-in')) {{ clearInterval(poll); return; }}
-    if (loginSubmetido || navegacaoPendente) return;
+  function setVal(el, val) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(el, val);
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+    el.dispatchEvent(new Event('change', {bubbles: true}));
+  }
 
-    const campoEmail = document.querySelector('#login-email-desktop');
-    const campoSenha = document.querySelector('#login-password-desktop');
-    if (!campoEmail || !campoSenha) return;
+  // Credenciais buscadas em tempo real via endpoint autenticado — nunca ficam no HTML.
+  fetch('/grex-autologin-creds', {cache: 'no-store'})
+    .then(r => r.ok ? r.json() : null)
+    .then(creds => {
+      if (!creds) return;
+      const EMAIL = creds.email;
+      const SENHA = creds.senha;
 
-    setVal(campoEmail, EMAIL);
-    setVal(campoSenha, SENHA);
-    const btnEntrar = [...document.querySelectorAll('button')].find(b =>
-      b.textContent.trim().toLowerCase().includes('entrar')
-    );
-    if (!btnEntrar) return;
+      const poll = setInterval(() => {
+        if (location.pathname.includes('/eventos/check-in')) { clearInterval(poll); return; }
+        if (loginSubmetido || navegacaoPendente) return;
 
-    loginSubmetido = true;
-    setTimeout(() => btnEntrar.click(), 300);
-    // Após 6s sem navegar: considera falha e libera nova tentativa
-    setTimeout(() => {{ loginSubmetido = false; }}, 6000);
-  }}, 1500);
+        const campoEmail = document.querySelector('#login-email-desktop');
+        const campoSenha = document.querySelector('#login-password-desktop');
+        if (!campoEmail || !campoSenha) return;
 
-  // Se após 20s nada aconteceu (sessão ativa sem formulário), navega direto
-  setTimeout(() => {{
-    if (!location.pathname.includes('/eventos/check-in') && !navegacaoPendente) {{
-      clearInterval(poll);
-      irParaCheckin();
-    }}
-  }}, 20000);
-}})();
-""".format(
-    email=repr(GREX_EMAIL),
-    senha=repr(GREX_SENHA),
-)
+        setVal(campoEmail, EMAIL);
+        setVal(campoSenha, SENHA);
+        const btnEntrar = [...document.querySelectorAll('button')].find(b =>
+          b.textContent.trim().toLowerCase().includes('entrar')
+        );
+        if (!btnEntrar) return;
+
+        loginSubmetido = true;
+        setTimeout(() => btnEntrar.click(), 300);
+        setTimeout(() => { loginSubmetido = false; }, 6000);
+      }, 1500);
+
+      setTimeout(() => {
+        if (!location.pathname.includes('/eventos/check-in') && !navegacaoPendente) {
+          clearInterval(poll);
+          irParaCheckin();
+        }
+      }, 20000);
+    })
+    .catch(() => {});
+})();
+"""
 
 BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
 _LOADING_COVER_CSS = (
@@ -443,6 +473,8 @@ def _build_upstream_headers():
            methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
 def firebase_proxy(host, path):
     """Encaminha chamadas Firebase com Origin correto para evitar bloqueio de domínio."""
+    if host not in FIREBASE_HOSTS:
+        return Response("Host not allowed", status=403)
     url = f"https://{host}/{path}"
     if request.query_string:
         url += '?' + request.query_string.decode('utf-8', errors='replace')

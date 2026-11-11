@@ -15,10 +15,9 @@ def v(name, default=''):
 
 config = [
     ('PANEL_TITLE',             v('PANEL_TITLE')),
+    ('PANEL_TOKEN',             v('PANEL_TOKEN')),
     ('PRIMARY_COLOR',           v('PRIMARY_COLOR', '#6b46c1')),
     ('PRIMARY_LIGHT',           v('PRIMARY_LIGHT', '#8b5cf6')),
-    ('GREX_EMAIL',              v('GREX_EMAIL')),
-    ('GREX_PASSWORD',           v('GREX_PASSWORD')),
     ('GREX_PARTICIPANTS_URL',   v('GREX_PARTICIPANTS_URL')),
     ('GREX_PARTICIPANTS_URL_2', v('GREX_PARTICIPANTS_URL_2')),
     ('GREX_FONTE1_COLUNAS',     v('GREX_FONTE1_COLUNAS')),
@@ -53,19 +52,65 @@ echo "✅ config.js gerado!"
 
 echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
-import http.server, os
+import http.server, os, base64, hmac, secrets, sys
 
-class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+PANEL_USER  = os.environ.get('PANEL_USER', 'admin')
+PANEL_PASS  = os.environ.get('PANEL_PASSWORD', '')
+PANEL_TOKEN = os.environ.get('PANEL_TOKEN', '')
+
+if not PANEL_PASS and not PANEL_TOKEN:
+    PANEL_TOKEN = secrets.token_urlsafe(32)
+    print('[AVISO] Nenhuma autenticação configurada. Configure PANEL_TOKEN ou PANEL_PASSWORD nas variáveis de ambiente.', file=sys.stderr)
+    sys.stderr.flush()
+
+class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if not self._check_auth():
+            return
+        super().do_GET()
+
+    def do_HEAD(self):
+        if not self._check_auth():
+            return
+        super().do_HEAD()
+
+    def _check_auth(self):
+        if not PANEL_PASS and not PANEL_TOKEN:
+            return True
+        # Bearer token (fetch() calls do app)
+        if PANEL_TOKEN:
+            auth = self.headers.get('Authorization', '')
+            if hmac.compare_digest(auth, f'Bearer {PANEL_TOKEN}'):
+                return True
+        # Basic Auth (acesso direto pelo browser)
+        if PANEL_PASS:
+            auth = self.headers.get('Authorization', '')
+            if auth.startswith('Basic '):
+                try:
+                    decoded = base64.b64decode(auth[6:]).decode('utf-8')
+                    user, pwd = decoded.split(':', 1)
+                    if user == PANEL_USER and pwd == PANEL_PASS:
+                        return True
+                except Exception:
+                    pass
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm="Painel ADM"')
+            self.end_headers()
+            return False
+        self.send_error(403)
+        return False
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
         super().end_headers()
+
     def log_message(self, format, *args):
         pass
 
 os.chdir('/app')
-http.server.HTTPServer(('', 8080), NoCacheHandler).serve_forever()
+http.server.HTTPServer(('', 8080), AuthNoCacheHandler).serve_forever()
 SERVEREOF
 SERVER_PID=$!
 sleep 3

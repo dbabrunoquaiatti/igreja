@@ -1,5 +1,5 @@
 # Usar imagem com Chrome pré-instalado (MUITO mais confiável)
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Metadados
 LABEL maintainer="Bruno Quaiatti"
@@ -15,8 +15,6 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
-    wget \
-    curl \
     ca-certificates \
     tzdata \
     libnss3 \
@@ -32,8 +30,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Instalar dependências Python
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copiar scripts
 COPY webscraping_grex.py .
@@ -47,7 +44,13 @@ COPY imgs/ ./imgs/
 
 # Copiar entrypoint (gera config.js a partir das env vars do Easypanel)
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && groupadd -r -g 1001 grex \
+    && useradd -r -u 1001 -g grex -s /sbin/nologin grex \
+    && chown -R grex:grex /app \
+    && chown grex:grex /entrypoint.sh
+
+USER grex
 
 # Expor volume para dados
 VOLUME ["/app/data"]

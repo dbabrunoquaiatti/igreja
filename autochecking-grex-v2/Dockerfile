@@ -9,6 +9,12 @@ COPY app.py .
 # credenciais.cfg é ignorado pelo .gitignore — configure via variáveis de ambiente:
 #   GREX_EMAIL    → e-mail do usuário Grex
 #   GREX_PASSWORD → senha do usuário Grex
+#   PROXY_PASS    → senha do proxy (obrigatório em produção)
+
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8080
 

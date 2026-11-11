@@ -50,3 +50,6 @@ downloads/
 # Chrome driver
 chromedriver
 chromedriver.exe
+
+# Dados em runtime (Excel com PII dos participantes — gerados pelo webscraping)
+data/
