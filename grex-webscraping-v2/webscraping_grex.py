@@ -90,7 +90,11 @@ def setup_driver():
         "plugins.always_open_pdf_externally": True
     }
     chrome_options.add_experimental_option("prefs", prefs)
+    # Evitar detecção de automação pelo site
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option("useAutomationExtension", False)
 
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
     chrome_options.add_argument("--disable-logging")
     chrome_options.add_argument("--disable-component-update")
     chrome_options.add_argument("--disable-sync")
@@ -172,6 +176,16 @@ def login(driver, email, password):
         driver.save_screenshot("/app/data/login_debug.png")
         print(f"❌ Erro ao fazer login: {e}")
         print(f"   URL atual: {driver.current_url}")
+        # Mostrar mensagens de erro visíveis na página
+        try:
+            erros = driver.find_elements(By.CSS_SELECTOR,
+                "[class*='error'], [class*='alert'], [class*='invalid'], [class*='danger'], [role='alert']")
+            for el in erros[:5]:
+                txt = el.text.strip()
+                if txt:
+                    print(f"   Msg da página: {txt}")
+        except Exception:
+            pass
         print("💡 Dica: Verifique se as credenciais estão corretas")
         raise
 
