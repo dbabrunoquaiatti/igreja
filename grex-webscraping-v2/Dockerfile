@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     fonts-liberation \
     fonts-dejavu-core \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Definir diretório de trabalho
@@ -44,16 +45,14 @@ COPY imgs/ ./imgs/
 
 # Copiar entrypoint (gera config.js a partir das env vars do Easypanel)
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh \
+COPY docker-entrypoint-root.sh /docker-entrypoint-root.sh
+RUN chmod +x /entrypoint.sh /docker-entrypoint-root.sh \
     && groupadd -r -g 1001 grex \
     && useradd -r -u 1001 -g grex -s /sbin/nologin grex \
-    && chown -R grex:grex /app \
-    && chown grex:grex /entrypoint.sh
-
-USER grex
+    && chown -R grex:grex /app
 
 # Expor volume para dados
 VOLUME ["/app/data"]
 
-# Comando padrão
-ENTRYPOINT ["/entrypoint.sh"]
+# Wrapper root: corrige permissões do volume e dropa para grex
+ENTRYPOINT ["/docker-entrypoint-root.sh"]
