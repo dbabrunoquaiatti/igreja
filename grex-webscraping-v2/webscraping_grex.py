@@ -49,9 +49,11 @@ def _diagnosticar_chromium():
     try:
         shutil.rmtree(CHROME_PROFILE_DIR, ignore_errors=True)
         os.makedirs(CHROME_PROFILE_DIR, exist_ok=True)
+        os.makedirs("/tmp/chrome-crashes", exist_ok=True)
         test = subprocess.run(
             [CHROME_BIN, "--headless=new", "--no-sandbox", "--disable-gpu",
              "--disable-dev-shm-usage", f"--user-data-dir={CHROME_PROFILE_DIR}",
+             "--crash-dumps-dir=/tmp/chrome-crashes",
              "--dump-dom", "about:blank"],
             capture_output=True, text=True, timeout=20
         )
@@ -76,6 +78,7 @@ def setup_driver():
     # Limpar perfil do Chrome entre execuções (evita conflito de lock)
     shutil.rmtree(CHROME_PROFILE_DIR, ignore_errors=True)
     os.makedirs(CHROME_PROFILE_DIR, exist_ok=True)
+    os.makedirs("/tmp/chrome-crashes", exist_ok=True)
 
     chrome_options = Options()
     chrome_options.binary_location = CHROME_BIN
@@ -109,9 +112,10 @@ def setup_driver():
     chrome_options.add_argument(f"--user-data-dir={CHROME_PROFILE_DIR}")
     chrome_options.add_argument("--no-first-run")
     chrome_options.add_argument("--remote-debugging-port=0")
-    # Chromium 156+ (Debian trixie): crashpad handler falha sem --database → Chrome sai
-    chrome_options.add_argument("--disable-crash-reporter")
-    chrome_options.add_argument("--disable-features=CrashReporter")
+    # Chromium 156 (Debian trixie): --disable-crash-reporter impede inicialização do crashpad
+    # mas Chrome ainda spawna o handler sem --database → mata o processo.
+    # Solução: deixar o crashpad inicializar normalmente com diretório explícito.
+    chrome_options.add_argument("--crash-dumps-dir=/tmp/chrome-crashes")
 
     service = Service(
         CHROMEDRIVER_BIN,
