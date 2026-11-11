@@ -108,6 +108,7 @@ def setup_driver():
     chrome_options.add_argument("--metrics-recording-only")
 
     # Essencial para rodar em Docker como não-root
+    chrome_options.add_argument("--window-size=1280,900")
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-setuid-sandbox")
@@ -130,46 +131,62 @@ def setup_driver():
     return driver
 
 
+def _preencher_campo_angular(driver, element, text):
+    """Preenche um campo usando native value setter + eventos Angular/React"""
+    element.click()
+    # Usar native setter para bypassar React/Angular synthetic events
+    driver.execute_script("""
+        var el = arguments[0];
+        var nativeSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value').set;
+        nativeSetter.call(el, arguments[1]);
+        el.dispatchEvent(new Event('input',  { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    """, element, text)
+    # send_keys garante que o valor DOM está visível para o ChromeDriver também
+    element.send_keys(Keys.END)
+
+
 def login(driver, email, password):
     """Realiza login no portal GREX"""
     print("🔐 Acessando página de login...")
     driver.get("https://portal.grex.com.br/login")
 
     try:
+        # Aguardar formulário carregar
+        wait = WebDriverWait(driver, 15)
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#login-email-desktop")))
+
         print("📧 Preenchendo email...")
         email_field = driver.find_element(By.CSS_SELECTOR, "#login-email-desktop")
-        email_field.clear()
-        email_field.send_keys(email)
+        _preencher_campo_angular(driver, email_field, email)
 
         print("🔑 Preenchendo senha...")
         password_field = driver.find_element(By.CSS_SELECTOR, "#login-password-desktop")
-        password_field.clear()
-        password_field.send_keys(password)
+        _preencher_campo_angular(driver, password_field, password)
+
+        # Verificar que o Angular enxerga os valores
+        vals = driver.execute_script("""
+            return [
+                document.querySelector('#login-email-desktop') ?
+                    document.querySelector('#login-email-desktop').value : 'N/A',
+                document.querySelector('#login-password-desktop') ?
+                    document.querySelector('#login-password-desktop').value : 'N/A'
+            ];
+        """)
+        print(f"   Valores no DOM: email={repr(vals[0][:5]+'***' if vals[0] else '')}, pwd={repr('***' if vals[1] else '')}")
+
+        # Dar tempo para Angular processar os bindings
+        time.sleep(1)
 
         print("🖱️  Enviando login...")
-        # form.submit() ignora Angular event handlers — usar click no botão
-        submit_clicked = False
-        for sel in [
-            "button[type='submit']",
-            "form button",
-            "button.btn--primary",
-            "input[type='submit']",
-        ]:
-            btns = driver.find_elements(By.CSS_SELECTOR, sel)
-            if btns:
-                driver.execute_script("arguments[0].click();", btns[0])
-                submit_clicked = True
-                print(f"   Submit via: {sel}")
-                break
+        # Tentar Enter no campo senha (mais confiável em Angular Material)
+        password_field.send_keys(Keys.RETURN)
+        print("   Submit via Keys.RETURN na senha")
 
-        if not submit_clicked:
-            # fallback: submit nativo
-            driver.find_element(By.CSS_SELECTOR, "form").submit()
-            print("   Submit via form.submit() (fallback)")
-
-        # Aguardar redirecionamento (20s — angular pode ser lento)
-        wait = WebDriverWait(driver, 20)
-        wait.until(lambda d: "login" not in d.current_url)
+        # Aguardar redirecionamento (25s)
+        wait2 = WebDriverWait(driver, 25)
+        wait2.until(lambda d: "login" not in d.current_url)
         print("✅ Login realizado com sucesso!")
 
     except Exception as e:
