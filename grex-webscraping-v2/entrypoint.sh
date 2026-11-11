@@ -15,7 +15,6 @@ def v(name, default=''):
 
 config = [
     ('PANEL_TITLE',             v('PANEL_TITLE')),
-    ('PANEL_TOKEN',             v('PANEL_TOKEN')),
     ('PRIMARY_COLOR',           v('PRIMARY_COLOR', '#6b46c1')),
     ('PRIMARY_LIGHT',           v('PRIMARY_LIGHT', '#8b5cf6')),
     ('GREX_PARTICIPANTS_URL',   v('GREX_PARTICIPANTS_URL')),
@@ -52,11 +51,19 @@ echo "✅ config.js gerado!"
 
 echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
-import http.server, os, base64, hmac, secrets, sys
+import http.server, os, base64, hmac, secrets, time
 
-PANEL_USER  = os.environ.get('PANEL_USER', 'admin')
-PANEL_PASS  = os.environ.get('PANEL_PASSWORD', '')
-PANEL_TOKEN = os.environ.get('PANEL_TOKEN', '')
+PANEL_USER = os.environ.get('PANEL_USER', 'admin')
+PANEL_PASS = os.environ.get('PANEL_PASSWORD', '')
+
+# Sessões server-side: {token: timestamp}  — PANEL_TOKEN nunca vai ao browser
+_sessions = {}
+SESSION_TTL = 86400  # 24 h
+
+def _cleanup_sessions():
+    now = time.time()
+    for k in [k for k, t in list(_sessions.items()) if now - t > SESSION_TTL]:
+        del _sessions[k]
 
 
 class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
@@ -74,21 +81,32 @@ class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
         # Sem PANEL_PASSWORD configurado → acesso público
         if not PANEL_PASS:
             return True
-        # Bearer token (fetch() calls do app)
-        if PANEL_TOKEN:
-            auth = self.headers.get('Authorization', '')
-            if hmac.compare_digest(auth, f'Bearer {PANEL_TOKEN}'):
-                return True
-        # Basic Auth (acesso direto pelo browser)
+
+        # Cookie de sessão (fetch() calls após login)
+        for part in self.headers.get('Cookie', '').split(';'):
+            name, _, val = part.strip().partition('=')
+            if name.strip() == 'session':
+                ts = _sessions.get(val.strip())
+                if ts and time.time() - ts < SESSION_TTL:
+                    return True
+
+        # Basic Auth (login inicial pelo browser)
         auth = self.headers.get('Authorization', '')
         if auth.startswith('Basic '):
             try:
                 decoded = base64.b64decode(auth[6:]).decode('utf-8')
                 user, pwd = decoded.split(':', 1)
-                if user == PANEL_USER and pwd == PANEL_PASS:
+                user_ok = hmac.compare_digest(user, PANEL_USER)
+                pass_ok = hmac.compare_digest(pwd,  PANEL_PASS)
+                if user_ok and pass_ok:
+                    _cleanup_sessions()
+                    tok = secrets.token_urlsafe(32)
+                    _sessions[tok] = time.time()
+                    self._set_cookie = f'session={tok}; HttpOnly; SameSite=Strict; Path=/'
                     return True
             except Exception:
                 pass
+
         self.send_response(401)
         self.send_header('WWW-Authenticate', 'Basic realm="Painel ADM"')
         self.end_headers()
@@ -98,6 +116,9 @@ class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         self.send_header('Pragma', 'no-cache')
         self.send_header('Expires', '0')
+        if hasattr(self, '_set_cookie'):
+            self.send_header('Set-Cookie', self._set_cookie)
+            del self._set_cookie
         super().end_headers()
 
     def log_message(self, format, *args):

@@ -131,20 +131,16 @@ def setup_driver():
     return driver
 
 
-def _preencher_campo_angular(driver, element, text):
-    """Preenche um campo usando native value setter + eventos Angular/React"""
+def _digitar_campo(driver, element, text, press_tab=False):
+    """Preenche campo com send_keys real (gera keydown/keypress/keyup que Angular escuta)"""
     element.click()
-    # Usar native setter para bypassar React/Angular synthetic events
-    driver.execute_script("""
-        var el = arguments[0];
-        var nativeSetter = Object.getOwnPropertyDescriptor(
-            window.HTMLInputElement.prototype, 'value').set;
-        nativeSetter.call(el, arguments[1]);
-        el.dispatchEvent(new Event('input',  { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-    """, element, text)
-    # send_keys garante que o valor DOM está visível para o ChromeDriver também
-    element.send_keys(Keys.END)
+    time.sleep(0.2)
+    element.send_keys(Keys.CONTROL + 'a')
+    element.send_keys(Keys.DELETE)
+    element.send_keys(text)
+    if press_tab:
+        element.send_keys(Keys.TAB)
+        time.sleep(0.3)
 
 
 def login(driver, email, password):
@@ -153,39 +149,54 @@ def login(driver, email, password):
     driver.get("https://portal.grex.com.br/login")
 
     try:
-        # Aguardar formulário carregar
         wait = WebDriverWait(driver, 15)
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#login-email-desktop")))
+        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#login-email-desktop")))
+        time.sleep(0.5)
 
         print("📧 Preenchendo email...")
         email_field = driver.find_element(By.CSS_SELECTOR, "#login-email-desktop")
-        _preencher_campo_angular(driver, email_field, email)
+        _digitar_campo(driver, email_field, email, press_tab=True)  # TAB dispara blur/validation
 
         print("🔑 Preenchendo senha...")
         password_field = driver.find_element(By.CSS_SELECTOR, "#login-password-desktop")
-        _preencher_campo_angular(driver, password_field, password)
+        _digitar_campo(driver, password_field, password, press_tab=False)
+        time.sleep(0.5)
 
-        # Verificar que o Angular enxerga os valores
-        vals = driver.execute_script("""
-            return [
-                document.querySelector('#login-email-desktop') ?
-                    document.querySelector('#login-email-desktop').value : 'N/A',
-                document.querySelector('#login-password-desktop') ?
-                    document.querySelector('#login-password-desktop').value : 'N/A'
-            ];
+        # Diagnóstico: valores no DOM e estado do botão
+        info = driver.execute_script("""
+            var em = document.querySelector('#login-email-desktop');
+            var pw = document.querySelector('#login-password-desktop');
+            var btn = document.querySelector("button[type='submit']");
+            return {
+                emailVal:  em  ? em.value  : 'N/A',
+                pwdFilled: pw  ? (pw.value.length > 0) : false,
+                btnDisabled: btn ? (btn.disabled || btn.hasAttribute('disabled')) : 'not found',
+                btnText: btn ? btn.innerText.trim() : 'not found'
+            };
         """)
-        print(f"   Valores no DOM: email={repr(vals[0][:5]+'***' if vals[0] else '')}, pwd={repr('***' if vals[1] else '')}")
+        print(f"   DOM email={repr(info['emailVal'][:5]+'***' if info['emailVal'] not in ('N/A','') else info['emailVal'])}, "
+              f"pwd filled={info['pwdFilled']}, "
+              f"btn disabled={info['btnDisabled']} text={repr(info['btnText'])}")
 
-        # Dar tempo para Angular processar os bindings
-        time.sleep(1)
+        driver.save_screenshot("/app/data/login_presubmit.png")
 
-        print("🖱️  Enviando login...")
-        # Tentar Enter no campo senha (mais confiável em Angular Material)
-        password_field.send_keys(Keys.RETURN)
-        print("   Submit via Keys.RETURN na senha")
+        print("🖱️  Clicando no botão submit...")
+        try:
+            submit_btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
+            )
+            submit_btn.click()
+            print("   Submit via click() no button[type='submit']")
+        except Exception:
+            # Fallback: JS click (bypassa possível overlay)
+            driver.execute_script(
+                "document.querySelector(\"button[type='submit']\").click()"
+            )
+            print("   Submit via JS click() (fallback)")
 
-        # Aguardar redirecionamento (25s)
-        wait2 = WebDriverWait(driver, 25)
+        # Aguardar redirecionamento (30s)
+        wait2 = WebDriverWait(driver, 30)
         wait2.until(lambda d: "login" not in d.current_url)
         print("✅ Login realizado com sucesso!")
 
@@ -193,7 +204,6 @@ def login(driver, email, password):
         driver.save_screenshot("/app/data/login_debug.png")
         print(f"❌ Erro ao fazer login: {e}")
         print(f"   URL atual: {driver.current_url}")
-        # Mostrar mensagens de erro visíveis na página
         try:
             erros = driver.find_elements(By.CSS_SELECTOR,
                 "[class*='error'], [class*='alert'], [class*='invalid'], [class*='danger'], [role='alert']")
@@ -508,7 +518,7 @@ def baixar_fonte(driver, url, target_name, max_retries=3):
 def main():
     """Função principal"""
     print("=" * 60)
-    print("🚀 INICIANDO AUTOMAÇÃO GREX [build: diag-v1]")
+    print("🚀 INICIANDO AUTOMAÇÃO GREX [build: login-v2]")
     print("=" * 60)
 
     email = os.getenv("GREX_EMAIL")

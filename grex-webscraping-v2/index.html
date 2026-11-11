@@ -1735,11 +1735,9 @@
 
         // Carrega um arquivo Excel e retorna as linhas mapeadas, ou null se não existir
         async function carregarArquivoExcel(filename, overrides) {
-            const token = window.CONFIG && window.CONFIG.PANEL_TOKEN;
-            const fetchOpts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : {};
-            let response = await fetch(`./data/${filename}`, fetchOpts).catch(() => null);
+            let response = await fetch(`./data/${filename}`, { credentials: 'same-origin' }).catch(() => null);
             if (!response || !response.ok) {
-                response = await fetch(`/data/${filename}`, fetchOpts).catch(() => null);
+                response = await fetch(`/data/${filename}`, { credentials: 'same-origin' }).catch(() => null);
             }
             if (!response || !response.ok) return null;
 
@@ -1818,14 +1816,7 @@
                 }
 
                 if (allData.length > 0) {
-                    console.log('📊 Primeiros dados:', {
-                        nome: allData[0].nome,
-                        presenca: allData[0].presenca,
-                        presencaLower: String(allData[0].presenca || '').toLowerCase().trim(),
-                        isPresenteResult: isPresente(allData[0].presenca),
-                        statusPagamento: allData[0].statusPagamento,
-                        tipoInscricao: allData[0].tipoInscricao
-                    });
+                    console.log(`✅ Dados carregados: ${allData.length} registros`);
                 }
                 return true;
             } catch (error) {
@@ -1838,11 +1829,9 @@
             try {
                 console.debug('🔄 Tentando carregar cronograma.xlsx...');
 
-                const token = window.CONFIG && window.CONFIG.PANEL_TOKEN;
-                const fetchOpts = token ? { headers: { 'Authorization': 'Bearer ' + token } } : {};
-                let response = await fetch('./data/cronograma.xlsx', fetchOpts).catch(() => null);
+                let response = await fetch('./data/cronograma.xlsx', { credentials: 'same-origin' }).catch(() => null);
                 if (!response) {
-                    response = await fetch('/data/cronograma.xlsx', fetchOpts).catch(() => null);
+                    response = await fetch('/data/cronograma.xlsx', { credentials: 'same-origin' }).catch(() => null);
                 }
 
                 if (!response || !response.ok) {
