@@ -71,7 +71,8 @@ class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
         super().do_HEAD()
 
     def _check_auth(self):
-        if not PANEL_PASS and not PANEL_TOKEN:
+        # Sem PANEL_PASSWORD configurado → acesso público
+        if not PANEL_PASS:
             return True
         # Bearer token (fetch() calls do app)
         if PANEL_TOKEN:
@@ -79,21 +80,18 @@ class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
             if hmac.compare_digest(auth, f'Bearer {PANEL_TOKEN}'):
                 return True
         # Basic Auth (acesso direto pelo browser)
-        if PANEL_PASS:
-            auth = self.headers.get('Authorization', '')
-            if auth.startswith('Basic '):
-                try:
-                    decoded = base64.b64decode(auth[6:]).decode('utf-8')
-                    user, pwd = decoded.split(':', 1)
-                    if user == PANEL_USER and pwd == PANEL_PASS:
-                        return True
-                except Exception:
-                    pass
-            self.send_response(401)
-            self.send_header('WWW-Authenticate', 'Basic realm="Painel ADM"')
-            self.end_headers()
-            return False
-        self.send_error(403)
+        auth = self.headers.get('Authorization', '')
+        if auth.startswith('Basic '):
+            try:
+                decoded = base64.b64decode(auth[6:]).decode('utf-8')
+                user, pwd = decoded.split(':', 1)
+                if user == PANEL_USER and pwd == PANEL_PASS:
+                    return True
+            except Exception:
+                pass
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="Painel ADM"')
+        self.end_headers()
         return False
 
     def end_headers(self):
