@@ -40,6 +40,49 @@ def _ler_credenciais():
 
 GREX_EMAIL, GREX_SENHA = _ler_credenciais()
 
+# ── Tela de loading: cobre a página enquanto o login acontece em background ──
+# Desaparece naturalmente ao navegar para /eventos/check-in (nova carga de página).
+SCRIPT_LOADING = r"""
+(function () {
+  if (window.location.pathname.includes('/eventos/check-in')) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    #grex-loading {
+      position: fixed; inset: 0; z-index: 2147483646;
+      background: #0f172a;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 28px;
+    }
+    @keyframes grex-spin { to { transform: rotate(360deg); } }
+    @keyframesgrex-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .grex-ring {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 5px solid rgba(255,255,255,.08);
+      border-top-color: #22c55e;
+      animation: grex-spin .9s linear infinite;
+    }
+    .grex-loading-label {
+      color: rgba(255,255,255,.5);
+      font: 500 15px/1 sans-serif;
+      letter-spacing: .08em;
+      animation: grex-pulse 2s ease-in-out infinite;
+    }
+  `;
+  document.head.appendChild(style);
+
+  const el = document.createElement('div');
+  el.id = 'grex-loading';
+  el.innerHTML = '<div class="grex-ring"></div><div class="grex-loading-label">Iniciando check-in…</div>';
+
+  if (document.body) {
+    document.body.appendChild(el);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(el));
+  }
+})();
+"""
+
 # ── Patch fetch/XHR: intercepta chamadas Firebase e as redireciona pelo proxy ──
 # Deve ser injetado o mais cedo possível (no <head>), antes do Firebase SDK iniciar.
 SCRIPT_FIREBASE_PROXY = r"""
@@ -364,7 +407,7 @@ SCRIPT_AUTOLOGIN = """
 )
 
 BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
-HEAD_INJECTION = f"<script>{SCRIPT_FIREBASE_PROXY}</script>"
+HEAD_INJECTION = f"<script>{SCRIPT_LOADING}\n{SCRIPT_FIREBASE_PROXY}</script>"
 
 HOP_BY_HOP = {
     'host', 'content-length', 'transfer-encoding', 'connection',
