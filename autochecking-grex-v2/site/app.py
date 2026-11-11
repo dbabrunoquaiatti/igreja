@@ -280,7 +280,6 @@ SCRIPT_AUTOLOGIN = """
   window.__grexAutoLogin = true;
   const EMAIL = {email};
   const SENHA = {senha};
-  if (!EMAIL || !SENHA) return;
 
   function setVal(el, val) {{
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -301,44 +300,42 @@ SCRIPT_AUTOLOGIN = """
     }}
   }}
 
+  // Fecha briefing sempre que aparecer no DOM
+  new MutationObserver(fecharBriefing).observe(document.body, {{childList: true, subtree: true}});
+
+  // Já está na página certa: apenas fecha briefing e encerra
+  if (window.location.pathname.includes('/eventos/check-in')) {{
+    fecharBriefing();
+    return;
+  }}
+
   function tentarLogin() {{
     const campoEmail = document.querySelector('#login-email-desktop');
     const campoSenha = document.querySelector('#login-password-desktop');
     if (!campoEmail || !campoSenha) return false;
-    setVal(campoEmail, EMAIL);
-    setVal(campoSenha, SENHA);
+    if (EMAIL && SENHA) {{
+      setVal(campoEmail, EMAIL);
+      setVal(campoSenha, SENHA);
+    }}
     const btn = [...document.querySelectorAll('button')].find(b =>
       b.textContent.trim().toLowerCase().includes('entrar')
     );
     if (btn) {{
       setTimeout(() => {{
         btn.click();
-        // Aguarda o formulário sumir (login completo) e navega para check-in
-        const t = setInterval(() => {{
-          if (!document.querySelector('#login-email-desktop')) {{
-            clearInterval(t);
-            setTimeout(irParaCheckin, 1200);
-          }}
-        }}, 400);
-        setTimeout(() => clearInterval(t), 20000);
+        // Delay fixo após clique: aguarda resposta do servidor e navega
+        setTimeout(irParaCheckin, 3500);
       }}, 400);
     }}
     return true;
   }}
 
-  // Fecha o painel de briefing assim que aparecer
-  new MutationObserver(fecharBriefing).observe(document.body, {{childList: true, subtree: true}});
-
-  // Se já estiver na página de check-in (sessão ativa), só fecha o briefing
-  if (window.location.pathname.includes('/eventos/check-in')) {{
-    fecharBriefing();
-    return;
-  }}
-
   if (!tentarLogin()) {{
+    // Sem formulário de login: sessão já ativa, navega direto
     const obs = new MutationObserver(() => {{ if (tentarLogin()) obs.disconnect(); }});
     obs.observe(document.body, {{childList: true, subtree: true}});
-    setTimeout(() => obs.disconnect(), 15000);
+    // Se após 3s ainda não apareceu formulário, já está logado → navega
+    setTimeout(() => {{ obs.disconnect(); irParaCheckin(); }}, 3000);
   }}
 }})();
 """.format(
