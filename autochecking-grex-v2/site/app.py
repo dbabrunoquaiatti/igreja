@@ -307,6 +307,7 @@ def proxy(path):
         url += '?' + request.query_string.decode('utf-8', errors='replace')
 
     headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
+    headers['Accept-Encoding'] = 'gzip, deflate'  # evita brotli que requests não descomprime
 
     try:
         resp = requests.request(
