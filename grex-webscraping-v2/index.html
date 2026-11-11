@@ -1,0 +1,3173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageDocTitle"></title>
+    <link rel="icon" type="image/png" href="imgs/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --white: #ffffff;
+            --light-gray: #f5f5f5;
+            --lighter-gray: #fafafa;
+            --gray-border: #e8e8e8;
+            --text-dark: #2c2c2c;
+            --text-light: #666666;
+            --text-lighter: #999999;
+            --purple-primary: #6b46c1;
+            --purple-light: #8b5cf6;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1);
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        .app-container { display: flex; height: 100vh; overflow: hidden; }
+        .sidebar {
+            width: 280px;
+            background: var(--white);
+            border-right: 1px solid var(--gray-border);
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            z-index: 50;
+            transition: margin-left 0.3s ease, width 0.3s ease;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .sidebar.collapsed { width: 0; margin-left: 0; border-right: none; }
+        .sidebar-header {
+            padding: 32px 24px;
+            border-bottom: 1px solid var(--gray-border);
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-logo {
+            font-family: 'Poppins', sans-serif;
+            font-size: clamp(14px, 3.5vw, 20px);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .sidebar-logo span { font-size: 24px; }
+        .sidebar-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-dark);
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+        .sidebar-close:hover { background: var(--lighter-gray); color: var(--purple-primary); }
+        @media (min-width: 769px) {
+            .sidebar-close { display: none; }
+        }
+        .sidebar-nav { flex: 1; padding: 24px 0; overflow-y: auto; }
+        .nav-item {
+            padding: 16px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+            border-left: 3px solid transparent;
+            white-space: nowrap;
+        }
+        .nav-item:hover { background-color: var(--lighter-gray); color: var(--text-dark); }
+        .nav-item.active {
+            color: var(--purple-primary);
+            background-color: rgba(107, 70, 193, 0.08);
+            border-left-color: var(--purple-primary);
+            font-weight: 600;
+        }
+        .nav-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .header {
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-border);
+            padding: 18px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+            gap: 16px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .menu-toggle {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-dark);
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        .menu-toggle:hover { background: var(--lighter-gray); color: var(--purple-primary); }
+        .header-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-dark);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @media (max-width: 768px) {
+            .header-title { font-size: 18px; }
+        }
+        @media (max-width: 480px) {
+            .header-title { font-size: 14px; }
+        }
+        .header-spacer { flex: 1; min-width: 0; }
+        .status-dot {
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            background: #d1d5db;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: background 0.4s ease, box-shadow 0.4s ease;
+        }
+        .status-dot.green { background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,0.2); }
+        .status-dot.yellow { background: #eab308; box-shadow: 0 0 0 3px rgba(234,179,8,0.2); }
+        .status-dot.red { background: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.2); }
+        /* Status modal */
+        .status-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .status-overlay.show { opacity: 1; pointer-events: all; }
+        .status-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 28px 24px 24px;
+            width: min(300px, 90vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .status-overlay.show .status-modal { transform: scale(1) translateY(0); }
+        .status-modal-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .status-modal-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .status-modal-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #d1d5db;
+            flex-shrink: 0;
+        }
+        .status-modal-dot.green { background: #16a34a; }
+        .status-modal-dot.yellow { background: #eab308; }
+        .status-modal-dot.red { background: #dc2626; }
+        .status-modal-desc {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        .status-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 1px solid var(--gray-border);
+            padding-top: 12px;
+        }
+        .status-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        .status-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-legend-dot.green { background: #16a34a; }
+        .status-legend-dot.yellow { background: #eab308; }
+        .status-legend-dot.red { background: #dc2626; }
+        .aba-oculta { display: none !important; }
+        /* Admin contact modal */
+        .admin-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .admin-overlay.show { opacity: 1; pointer-events: all; }
+        .admin-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 36px 28px 28px;
+            width: min(300px, 90vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            position: relative;
+            text-align: center;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .admin-overlay.show .admin-modal { transform: scale(1) translateY(0); }
+        .admin-modal-icon { font-size: 36px; margin-bottom: 14px; }
+        .admin-modal-text {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+        /* QR Code modal */
+        .qr-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 2100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .qr-overlay.show { opacity: 1; pointer-events: all; }
+        .qr-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 28px 24px 24px;
+            width: min(300px, 90vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            position: relative;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .qr-overlay.show .qr-modal { transform: scale(1) translateY(0); }
+        .qr-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--gray-border);
+            width: 100%;
+        }
+        .qr-img { width: 220px; height: 220px; border-radius: 8px; display: block; }
+        .qr-url-text {
+            font-size: 11px;
+            color: var(--text-lighter);
+            text-align: center;
+            word-break: break-all;
+            max-width: 100%;
+        }
+        .content { flex: 1; overflow-y: auto; padding: 24px; }
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .stats-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-bottom: 32px;
+        }
+        .stats-grid .stat-card { cursor: pointer; flex: 1 1 calc(33.33% - 10px); }
+        .stat-card {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--purple-primary), var(--purple-light));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .stat-card:hover { border-color: var(--purple-light); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .stat-card:hover::before { opacity: 1; }
+        .stat-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 12px;
+        }
+        .stat-number {
+            font-family: 'Poppins', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-dark);
+            line-height: 1;
+            margin-bottom: 12px;
+        }
+        .stat-description { font-size: 12px; color: var(--text-lighter); }
+        .highlight-card {
+            background: linear-gradient(135deg, var(--purple-primary) 0%, var(--purple-light) 100%);
+            border: none;
+            color: white;
+            flex: 1 1 100%;
+            padding: 24px 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .highlight-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: moveBackground 20s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes moveBackground {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        .highlight-content {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 24px;
+        }
+        .highlight-text { flex: 1; }
+        .highlight-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        .highlight-number {
+            font-family: 'Poppins', sans-serif;
+            font-size: 40px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .highlight-desc { font-size: 12px; opacity: 0.85; margin-top: 8px; }
+        .highlight-badge {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .badge-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.9;
+        }
+        .badge-value {
+            font-family: 'Poppins', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+        .discipulado-container {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: var(--shadow-sm);
+        }
+        .discipulado-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+        .discipulado-card {
+            flex: 1 1 calc(33.33% - 16px);
+            min-width: 260px;
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .discipulado-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--purple-primary), var(--purple-light));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .discipulado-card { cursor: pointer; }
+        .discipulado-card:hover { border-color: var(--purple-light); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+        .discipulado-card:hover::before { opacity: 1; }
+        .discipulado-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--gray-border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .discipulado-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        .metric-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--lighter-gray);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .metric-item:last-child:nth-child(odd) { grid-column: span 2; }
+        .metric-item:hover { background: var(--light-gray); transform: translateY(-2px); }
+        .metric-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 8px;
+        }
+        .metric-value {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .metric-value.paid {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .metric-value.pending {
+            background: linear-gradient(135deg, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .metric-value.rejected {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .metric-value.duplicado {
+            background: linear-gradient(135deg, #f5576c, #f093fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .metric-value.presente {
+            background: linear-gradient(135deg, #06b6d4, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .table-container {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        .table-header { padding: 24px; border-bottom: 1px solid var(--gray-border); background: var(--white); }
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--lighter-gray);
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--gray-border);
+        }
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-family: 'Lato', sans-serif;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-dark);
+        }
+        .search-box input::placeholder { color: var(--text-lighter); }
+        .search-icon { color: var(--text-lighter); font-size: 18px; }
+        .table-wrapper { overflow-x: auto; max-height: 600px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead { background: var(--lighter-gray); position: sticky; top: 0; }
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-dark);
+            border-bottom: 1px solid var(--gray-border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        td {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-border);
+            color: var(--text-light);
+        }
+        tbody tr { transition: all 0.3s ease; }
+        tbody tr:hover { background: var(--lighter-gray); }
+        .duplicado-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f5576c, #f093fb);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status-paid {
+            background-color: #10b981;
+            color: white;
+        }
+        .status-pending {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .status-rejected {
+            background-color: #ef4444;
+            color: white;
+        }
+        .presenca-sim {
+            background-color: #10b981;
+            color: white;
+        }
+        .presenca-nao {
+            background-color: #ef4444;
+            color: white;
+        }
+        .no-data {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-lighter);
+        }
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            text-align: center;
+            color: var(--text-lighter);
+            min-height: 400px;
+        }
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+            opacity: 0.4;
+        }
+        .empty-state-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+        }
+        .empty-state-description {
+            font-size: 14px;
+            color: var(--text-light);
+            line-height: 1.6;
+            max-width: 400px;
+        }
+        .table-container .empty-state {
+            min-height: 400px;
+            padding: 80px 40px;
+        }
+        .dados-resumo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .resumo-card {
+            background: var(--white);
+            border: 2px solid var(--gray-border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .resumo-card:hover {
+            border-color: var(--purple-light);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+        .resumo-card.ativo {
+            background: linear-gradient(135deg, var(--purple-primary) 0%, var(--purple-light) 100%);
+            color: white;
+            border-color: var(--purple-primary);
+            box-shadow: var(--shadow-lg);
+        }
+        .resumo-card.ativo .resumo-label {
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .resumo-card.ativo .resumo-numero {
+            color: white;
+        }
+        .resumo-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .resumo-numero {
+            font-family: 'Poppins', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--purple-primary);
+        }
+        .cronograma-resumo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 768px) {
+            .dados-resumo {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .cronograma-resumo {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            .resumo-card { padding: 10px; }
+            .resumo-numero { font-size: 24px; }
+            .resumo-label { font-size: 9px; }
+            /* Se o último card ficar sozinho numa linha de 2 colunas, expande */
+            #dadosResumo .resumo-card:last-child:nth-child(odd) { grid-column: span 2; }
+        }
+        .celular-with-whats {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .whats-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #1b7f42;
+            border: none;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            padding: 0;
+            border-radius: 50%;
+        }
+        .whats-link img {
+            width: 17px;
+            height: 17px;
+            object-fit: contain;
+        }
+        .whats-link:hover {
+            transform: scale(1.15);
+            background: #157536;
+            box-shadow: 0 2px 8px rgba(27, 127, 66, 0.4);
+        }
+        @media (max-width: 768px) {
+            .sidebar { position: fixed; height: 100vh; top: 0; left: 0; z-index: 100; }
+            .sidebar.collapsed { margin-left: 0; width: 0; }
+            .sidebar:not(.collapsed) { width: 280px; margin-left: 0; }
+            .content { padding: 20px 12px; }
+            .discipulado-grid { gap: 16px; }
+            .discipulado-grid .discipulado-card { flex: 1 1 100%; }
+            .stats-grid { gap: 12px; }
+            .stats-grid .stat-card { flex: 1 1 calc(50% - 6px); }
+            .stat-pagos-layout { flex-direction: column !important; align-items: stretch !important; }
+            .stat-pagos-right { display: grid !important; grid-template-columns: 1fr 1fr; border-left: none !important; border-top: 1px solid var(--gray-border); padding-left: 0 !important; margin-left: 0 !important; padding-top: 12px; margin-top: 12px; gap: 0; align-self: auto !important; }
+            .stat-pagos-mini { text-align: center; padding: 6px 4px; }
+            .stat-pagos-mini:first-child { border-right: 1px solid var(--gray-border); }
+            .stat-card { padding: 14px; }
+            .stat-number { font-size: 26px; }
+            .stat-label { font-size: 11px; }
+            .highlight-card { padding: 24px 16px; }
+            .highlight-content { grid-template-columns: 1fr auto; gap: 16px; }
+            .highlight-number { font-size: 40px; }
+            .highlight-badge { width: 100%; }
+            .table-wrapper { max-height: 400px; }
+            .header { padding: 12px 12px; }
+            .header-title { font-size: 18px; }
+        }
+        @media (max-width: 480px) {
+            .header { padding: 10px 8px; gap: 8px; }
+            .header-title { font-size: 13px; }
+            .content { padding: 12px 8px; }
+            .stats-grid, .discipulado-grid { gap: 10px; }
+            .stat-card { padding: 10px; }
+            .stat-number { font-size: 22px; }
+            .stat-mini-number { font-size: 16px; }
+            .stat-label { font-size: 10px; }
+            .highlight-card { padding: 16px 12px; }
+            .highlight-number { font-size: 32px; }
+            .highlight-content { grid-template-columns: 1fr auto; gap: 12px; }
+            .highlight-badge { padding: 12px 16px; }
+            .badge-value { font-size: 24px; }
+            table { font-size: 11px; }
+            td, th { padding: 10px 6px; }
+            .sidebar { width: 240px; }
+            .sidebar.collapsed { width: 0; margin-left: 0; }
+        }
+        .sidebar-nav::-webkit-scrollbar,
+        .table-wrapper::-webkit-scrollbar { width: 8px; }
+        .sidebar-nav::-webkit-scrollbar-track,
+        .table-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-nav::-webkit-scrollbar-thumb,
+        .table-wrapper::-webkit-scrollbar-thumb { background: var(--gray-border); border-radius: 4px; }
+        .sidebar-nav::-webkit-scrollbar-thumb:hover,
+        .table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--text-lighter); }
+        /* Split card: Servos | Convidados */
+        .split-stat-card {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            padding: 0;
+        }
+        .split-stat-left, .split-stat-right {
+            flex: 1;
+            padding: 28px;
+        }
+        .split-stat-divider {
+            width: 1px;
+            background: var(--gray-border);
+            flex-shrink: 0;
+            margin: 20px 0;
+        }
+        /* Pagos card with mini panel */
+        .stat-pagos-layout {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+        }
+        .stat-pagos-left { flex: 1; }
+        .stat-pagos-right {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            border-left: 1px solid var(--gray-border);
+            padding-left: 20px;
+            margin-left: 20px;
+            flex-shrink: 0;
+            justify-content: center;
+            align-self: stretch;
+        }
+        .stat-pagos-mini { text-align: center; }
+        .stat-mini-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-lighter);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 4px;
+        }
+        .stat-mini-number {
+            font-family: 'Poppins', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-dark);
+            line-height: 1;
+        }
+        /* Nav PDF button */
+        .nav-item-action {
+            padding: 16px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+            border-left: 3px solid transparent;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+        .nav-item-action:hover { background-color: var(--lighter-gray); color: var(--text-dark); }
+
+        /* ===== SORTEIO ===== */
+        .sorteio-container {
+            max-width: 720px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .sorteio-opcoes {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 24px 28px;
+            display: flex;
+            align-items: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-sm);
+        }
+        .sorteio-opcao { display: flex; align-items: center; gap: 12px; }
+        .sorteio-opcao label { font-size: 14px; font-weight: 600; color: var(--text-dark); white-space: nowrap; }
+        .sorteio-opcao input[type="number"] {
+            width: 80px;
+            padding: 8px 12px;
+            border: 1.5px solid var(--gray-border);
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            text-align: center;
+            color: var(--purple-primary);
+            transition: border-color 0.2s;
+            outline: none;
+        }
+        .sorteio-opcao input[type="number"]:focus { border-color: var(--purple-primary); }
+        .sorteio-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-dark);
+            user-select: none;
+        }
+        .sorteio-toggle-label input[type="checkbox"] { display: none; }
+        .sorteio-toggle-track {
+            width: 44px;
+            height: 24px;
+            border-radius: 12px;
+            background: var(--gray-border);
+            position: relative;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+        .sorteio-toggle-track::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--white);
+            top: 3px;
+            left: 3px;
+            transition: left 0.3s;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .sorteio-toggle-label input:checked + .sorteio-toggle-track { background: var(--purple-primary); }
+        .sorteio-toggle-label input:checked + .sorteio-toggle-track::after { left: 23px; }
+
+        .sorteio-display {
+            background: var(--white);
+            border: 2px solid var(--gray-border);
+            border-radius: 16px;
+            padding: 48px 32px;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .sorteio-display.animando {
+            border-color: var(--purple-light);
+            box-shadow: 0 0 0 4px rgba(139,92,246,0.12), var(--shadow-md);
+        }
+        .sorteio-display.ganhador {
+            border-color: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34,197,94,0.15), var(--shadow-md);
+            animation: sorteioWin 0.6s ease;
+        }
+        @keyframes sorteioWin {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        .sorteio-display-nome {
+            font-family: 'Poppins', sans-serif;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--text-dark);
+            line-height: 1.2;
+            transition: color 0.15s;
+            word-break: break-word;
+        }
+        .sorteio-display.animando .sorteio-display-nome { color: var(--purple-primary); }
+        .sorteio-display.ganhador .sorteio-display-nome { color: #16a34a; }
+        .sorteio-display-disc {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-lighter);
+            transition: color 0.15s;
+        }
+        .sorteio-display.animando .sorteio-display-disc { color: var(--purple-light); }
+        .sorteio-display.ganhador .sorteio-display-disc { color: #22c55e; }
+        .sorteio-display-badge {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-light));
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .sorteio-display.ganhador .sorteio-display-badge { background: linear-gradient(135deg, #16a34a, #22c55e); }
+
+        .sorteio-botoes {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .sorteio-btn {
+            padding: 14px 36px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sorteio-btn.sortear {
+            background: linear-gradient(135deg, var(--purple-primary), var(--purple-light));
+            color: white;
+            box-shadow: 0 4px 14px rgba(107,70,193,0.3);
+        }
+        .sorteio-btn.sortear:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(107,70,193,0.4); }
+        .sorteio-btn.sortear:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .sorteio-btn.reiniciar {
+            background: var(--white);
+            color: var(--text-light);
+            border: 1.5px solid var(--gray-border);
+        }
+        .sorteio-btn.reiniciar:hover { border-color: var(--purple-light); color: var(--purple-primary); }
+        .sorteio-btn.parar {
+            background: linear-gradient(135deg, #dc2626, #ef4444);
+            color: white;
+            box-shadow: 0 4px 14px rgba(220,38,38,0.3);
+        }
+        .sorteio-btn.parar:hover { transform: translateY(-2px); }
+
+        .sorteio-progresso {
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-lighter);
+            font-weight: 500;
+            min-height: 20px;
+        }
+        .sorteio-ganhadores { display: flex; flex-direction: column; gap: 10px; }
+        .sorteio-ganhadores-titulo {
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .sorteio-ganhador-item {
+            background: var(--white);
+            border: 1px solid #86efac;
+            border-radius: 10px;
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: var(--shadow-sm);
+            animation: fadeIn 0.4s ease;
+        }
+        .sorteio-ganhador-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            color: white;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .sorteio-ganhador-info { flex: 1; min-width: 0; }
+        .sorteio-ganhador-nome { font-weight: 700; font-size: 15px; color: var(--text-dark); }
+        .sorteio-ganhador-disc { font-size: 12px; color: var(--text-lighter); margin-top: 2px; }
+        @media (max-width: 600px) {
+            .sorteio-display-nome { font-size: 24px; }
+            .sorteio-opcoes { gap: 16px; }
+        }
+        /* GREX button */
+        .grex-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 7px 16px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+        .grex-btn:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59,130,246,0.4); }
+        /* GREX modal */
+        .grex-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .grex-overlay.show { opacity: 1; pointer-events: all; }
+        .grex-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 28px 24px 24px;
+            width: min(320px, 90vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .grex-overlay.show .grex-modal { transform: scale(1) translateY(0); }
+        .grex-modal-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .grex-modal-link {
+            width: 100%;
+            padding: 13px 20px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #3b82f6;
+            color: white;
+            text-align: center;
+        }
+        .grex-modal-link:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59,130,246,0.35); }
+        .grex-modal-close {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-lighter);
+            padding: 4px;
+            line-height: 1;
+        }
+        .grex-modal-close:hover { color: var(--text-dark); }
+        .toast-notify {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%) translateY(16px);
+            background: #16a34a;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 600;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.35s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 6px 24px rgba(22, 163, 74, 0.4);
+        }
+        .toast-notify.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-notify.error { background: #dc2626; box-shadow: 0 6px 24px rgba(220, 38, 38, 0.4); }
+        .toast-check { font-size: 18px; color: white; }
+    </style>
+</head>
+<body>
+    <!-- config.js já foi carregado pelo <script src="config.js"> no <head> com as env vars do Easypanel -->
+    <script>
+        // Garante que window.CONFIG existe mesmo se config.js falhar (dev local sem container)
+        window.CONFIG = window.CONFIG || {};
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                carregarConfiguracao();
+                inicializar();
+            });
+        } else {
+            carregarConfiguracao();
+            inicializar();
+        }
+    </script>
+    <div class="app-container">
+        <aside class="sidebar collapsed" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo" id="sidebarLogo">Encontro</div>
+                <button class="sidebar-close" id="sidebarClose" title="Fechar menu">✕</button>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-page="resumo"><span class="nav-icon">📈</span><span>Resumo</span></div>
+                <div class="nav-item" data-page="discipulado"><span class="nav-icon">👥</span><span>Discipulado</span></div>
+                <div class="nav-item" data-page="rede"><span class="nav-icon">🌐</span><span>Rede</span></div>
+                <div class="nav-item" data-page="dados"><span class="nav-icon">📋</span><span>Dados</span></div>
+                <div class="nav-item" data-page="cronograma"><span class="nav-icon">📅</span><span>Cronograma</span></div>
+                <div class="nav-item" data-page="sorteio"><span class="nav-icon">🎉</span><span>Sorteio</span></div>
+                <div class="nav-item-action" id="navPdfConvidados"><span class="nav-icon">📄</span><span>Lista convidados</span></div>
+                <div class="nav-item-action" id="navMensagemInscricao"><span class="nav-icon">💬</span><span>Mensagem Inscrição</span></div>
+            </nav>
+        </aside>
+        <div class="main-content">
+            <header class="header">
+                <div class="header-left">
+                    <button class="menu-toggle" id="menuToggle" title="Abrir/Fechar menu">☰</button>
+                    <div class="header-title" id="pageTitle">Relatório de Inscritos</div>
+                </div>
+                <div class="header-spacer"></div>
+                <div class="status-dot" id="statusDot" title="Status de atualização"></div>
+                <button class="grex-btn" id="grexBtn">GREX</button>
+            </header>
+            <div class="content">
+                <div id="resumo" class="page-section active">
+                    <div class="stats-grid">
+                        <div class="highlight-card">
+                            <div class="highlight-content">
+                                <div class="highlight-text">
+                                    <div class="highlight-label">Métrica Principal</div>
+                                    <div class="highlight-number" id="totalMain">0</div>
+                                    <div class="highlight-desc">Total de Inscritos</div>
+                                </div>
+                                <div class="highlight-badge">
+                                    <div class="badge-label">Taxa de Pagamento</div>
+                                    <div class="badge-value" id="taxaPagBadge">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card" data-filtro="">
+                            <div class="stat-pagos-layout">
+                                <div class="stat-pagos-left">
+                                    <div class="stat-label">Total de Inscritos</div>
+                                    <div class="stat-number" id="totalInscritos">0</div>
+                                    <div class="stat-description">Todos os registros cadastrados</div>
+                                </div>
+                                <div class="stat-pagos-right" id="statPagosRightInscritos">
+                                    <div class="stat-pagos-mini" id="miniServosHome">
+                                        <div class="stat-mini-label">Servos</div>
+                                        <div class="stat-mini-number" id="totalServosHome">0</div>
+                                    </div>
+                                    <div class="stat-pagos-mini" id="miniConvidadosHome">
+                                        <div class="stat-mini-label">Convidados</div>
+                                        <div class="stat-mini-number" id="totalConvidadosHome">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card" data-filtro="paid">
+                            <div class="stat-pagos-layout">
+                                <div class="stat-pagos-left">
+                                    <div class="stat-label">Inscritos Pagos</div>
+                                    <div class="stat-number" id="totalPagos">0</div>
+                                    <div class="stat-description">Pagamento confirmado</div>
+                                </div>
+                                <div class="stat-pagos-right" id="statPagosRightPagos">
+                                    <div class="stat-pagos-mini" id="miniServosPagos">
+                                        <div class="stat-mini-label">Servos</div>
+                                        <div class="stat-mini-number" id="totalServosPagos">0</div>
+                                    </div>
+                                    <div class="stat-pagos-mini" id="miniConvidadosPagos">
+                                        <div class="stat-mini-label">Convidados</div>
+                                        <div class="stat-mini-number" id="totalConvidadosPagos">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stat-card" data-filtro="rejected">
+                            <div class="stat-label">Rejeitados</div>
+                            <div class="stat-number" id="totalRejeitados">0</div>
+                            <div class="stat-description">Pedidos rejeitados</div>
+                        </div>
+                        <div class="stat-card" data-filtro="duplicado">
+                            <div class="stat-label">Duplicados</div>
+                            <div class="stat-number" id="totalDuplicados">0</div>
+                            <div class="stat-description">Registros duplicados detectados</div>
+                        </div>
+                        <div class="stat-card" data-filtro="pending">
+                            <div class="stat-label">Pendentes</div>
+                            <div class="stat-number" id="totalPendentes">0</div>
+                            <div class="stat-description">Aguardando confirmação</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="discipulado" class="page-section">
+                    <div class="discipulado-container">
+                        <div class="discipulado-grid" id="discipuladoGrid">
+                            <div class="no-data">Carregando dados de discipulado...</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="rede" class="page-section">
+                    <div class="discipulado-container">
+                        <div class="discipulado-grid" id="redeGrid">
+                            <div class="no-data">Carregando dados de rede...</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="dados" class="page-section">
+                    <div class="dados-resumo" id="dadosResumo"></div>
+                    <div class="table-container">
+                        <div id="emptyStateContainer"></div>
+                        <div class="table-header">
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="searchInput" placeholder="Buscar por nome, email, CPF ou celular...">
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="dataTable">
+                                <thead>
+                                    <tr>
+                                        <th id="thNome">Nome</th><th>Idade</th><th>Celular</th><th>Discipulador</th>
+                                        <th>Líder</th><th>Tipo Inscrição</th>
+                                        <th>Status Pagamento</th><th>Método</th><th>Presente</th><th>Inscrito Em</th><th>Duplicado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody"><tr><td colspan="15" class="no-data">Nenhum dado para exibir</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="cronograma" class="page-section">
+                    <div class="cronograma-resumo" id="cronogramaResumo"></div>
+                    <div class="table-container">
+                        <div id="cronogramaEmptyStateContainer"></div>
+                        <div class="table-header">
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="searchCronograma" placeholder="Buscar por nome, dia, horário...">
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="cronogramaTable">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th><th>Dia</th><th>Início</th><th>Fim</th><th>Duração</th>
+                                        <th>Laranja</th><th>Amarelo</th><th>Verde</th><th>Rosa</th><th>Obs</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cronogramaTableBody"><tr><td colspan="10" class="no-data">Nenhum dado para exibir</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="sorteio" class="page-section">
+                    <div class="sorteio-container">
+                        <div class="sorteio-opcoes">
+                            <div class="sorteio-opcao">
+                                <label for="sorteioQtdPremios">Quantidade de prêmios</label>
+                                <input type="number" id="sorteioQtdPremios" min="1" max="200" value="1">
+                            </div>
+                            <div class="sorteio-opcao">
+                                <label class="sorteio-toggle-label">
+                                    <input type="checkbox" id="sorteioApenasPresentes">
+                                    <span class="sorteio-toggle-track"></span>
+                                    <span>Apenas presentes</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="sorteio-display" id="sorteioDisplay">
+                            <div class="sorteio-display-badge" id="sorteioBadge" style="display:none"></div>
+                            <div class="sorteio-display-nome" id="sorteioNome">Pronto para sortear</div>
+                            <div class="sorteio-display-disc" id="sorteioDisc">Configure as opções e clique em Sortear</div>
+                        </div>
+                        <div class="sorteio-botoes">
+                            <button class="sorteio-btn sortear" id="sortearBtn" onclick="iniciarSorteio()">🎉 Sortear</button>
+                            <button class="sorteio-btn reiniciar" id="reiniciarBtn" onclick="reiniciarSorteio()">↺ Reiniciar</button>
+                        </div>
+                        <div class="sorteio-progresso" id="sorteioProgresso"></div>
+                        <div class="sorteio-ganhadores" id="sorteioGanhadores"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grex-overlay" id="grexOverlay">
+        <div class="grex-modal">
+            <button class="grex-modal-close" id="grexModalClose">✕</button>
+            <div class="grex-modal-title">Links do Grex</div>
+            <button class="grex-modal-link" id="grexLinkEvento">Pagina do Evento</button>
+            <button class="grex-modal-link" id="grexLinkAdmin">Administração do Evento</button>
+            <button class="grex-modal-link" id="grexLinkQrcode">QRCODE (LINK INSCRIÇÃO)</button>
+            <button class="grex-modal-link" id="grexLinkAutomacao">Automação Presença</button>
+        </div>
+    </div>
+
+    <div class="qr-overlay" id="qrOverlay">
+        <div class="qr-modal">
+            <button class="grex-modal-close" id="qrModalClose">✕</button>
+            <div class="qr-title">QR Code — Link de Inscrição</div>
+            <img class="qr-img" id="qrImg" src="" alt="QR Code">
+            <div class="qr-url-text" id="qrUrlText"></div>
+        </div>
+    </div>
+
+    <div class="admin-overlay" id="adminOverlay">
+        <div class="admin-modal">
+            <button class="grex-modal-close" id="adminModalClose">✕</button>
+            <div class="admin-modal-icon">🔒</div>
+            <div class="admin-modal-text">Contate o Administrador do sistema</div>
+        </div>
+    </div>
+
+    <div class="status-overlay" id="statusOverlay">
+        <div class="status-modal">
+            <button class="grex-modal-close" id="statusModalClose">✕</button>
+            <div class="status-modal-title">Status dos dados</div>
+            <div class="status-modal-row">
+                <div class="status-modal-dot" id="statusModalDot"></div>
+                <div class="status-modal-desc" id="statusModalDesc">Aguardando dados...</div>
+            </div>
+            <div class="status-legend">
+                <div class="status-legend-item">
+                    <div class="status-legend-dot green"></div>
+                    <span>0–3 min — Dados atualizados</span>
+                </div>
+                <div class="status-legend-item">
+                    <div class="status-legend-dot yellow"></div>
+                    <span>3–20 min — Atenção</span>
+                </div>
+                <div class="status-legend-item">
+                    <div class="status-legend-dot red"></div>
+                    <span>+20 min — Dados desatualizados</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function carregarConfiguracao() {
+            try {
+                if (!window.CONFIG) {
+                    console.warn('⚠️ CONFIG não encontrada');
+                    return;
+                }
+
+                // Aplicar título
+                if (window.CONFIG.PANEL_TITLE) {
+                    console.log(`📋 Aplicando título: ${window.CONFIG.PANEL_TITLE}`);
+                    document.title = window.CONFIG.PANEL_TITLE;
+                    const docTitle = document.getElementById('pageDocTitle');
+                    if (docTitle) docTitle.textContent = window.CONFIG.PANEL_TITLE;
+                    const sidebarLogo = document.getElementById('sidebarLogo');
+                    if (sidebarLogo) sidebarLogo.textContent = window.CONFIG.PANEL_TITLE;
+                } else {
+                    console.warn('⚠️ PANEL_TITLE vazio');
+                }
+
+                // Aplicar cores
+                const root = document.documentElement;
+                const normCor = v => {
+                    if (!v) return '';
+                    v = v.trim();
+                    return /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(v) ? '#' + v : v;
+                };
+                const corPrimary = normCor(window.CONFIG.PRIMARY_COLOR);
+                const corLight   = normCor(window.CONFIG.PRIMARY_LIGHT);
+                if (corPrimary) {
+                    console.log(`🎨 Aplicando PRIMARY_COLOR: ${corPrimary}`);
+                    root.style.setProperty('--purple-primary', corPrimary);
+                }
+                if (corLight) {
+                    console.log(`🎨 Aplicando PRIMARY_LIGHT: ${corLight}`);
+                    root.style.setProperty('--purple-light', corLight);
+                }
+                
+                // Aplicar visibilidade de Servos/Convidados
+                const servosAtivo = (window.CONFIG.SERVOS || 'S').toUpperCase() !== 'N';
+                const convidadosAtivo = (window.CONFIG.CONVIDADOS || 'S').toUpperCase() !== 'N';
+                if (!servosAtivo) {
+                    const s = document.createElement('style');
+                    s.textContent = '#miniServosHome, #miniServosPagos { display: none !important; }';
+                    document.head.appendChild(s);
+                }
+                if (!convidadosAtivo) {
+                    const s = document.createElement('style');
+                    s.textContent = '#miniConvidadosHome, #miniConvidadosPagos, #navPdfConvidados { display: none !important; }';
+                    document.head.appendChild(s);
+                }
+                if (!servosAtivo && !convidadosAtivo) {
+                    const s = document.createElement('style');
+                    s.textContent = '#statPagosRightInscritos, #statPagosRightPagos { display: none !important; }';
+                    document.head.appendChild(s);
+                }
+
+                // Aplicar exclusão de abas
+                if (window.CONFIG.EXCLUIR_ABAS) {
+                    const abasExcluidas = window.CONFIG.EXCLUIR_ABAS.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+                    abasExcluidas.forEach(aba => {
+                        const navItem = document.querySelector(`.nav-item[data-page="${aba}"]`);
+                        if (navItem) navItem.classList.add('aba-oculta');
+                        const section = document.getElementById(aba);
+                        if (section) section.classList.add('aba-oculta');
+                    });
+                    // Se a aba ativa foi ocultada, navegar para a primeira visível
+                    const activeNav = document.querySelector('.nav-item.active');
+                    if (activeNav && activeNav.classList.contains('aba-oculta')) {
+                        const firstVisible = document.querySelector('.nav-item:not(.aba-oculta)');
+                        if (firstVisible) firstVisible.click();
+                    }
+                    console.log(`🚫 Abas excluídas: ${window.CONFIG.EXCLUIR_ABAS}`);
+                }
+
+                // Aplicar exclusão de colunas (tabela de dados)
+                if (window.CONFIG.EXCLUIR_COLUNAS) {
+                    const colunasExcluidas = window.CONFIG.EXCLUIR_COLUNAS.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
+                    const colunaMap = {
+                        'nome': 1, 'idade': 2, 'celular': 3, 'discipulador': 4, 'lider': 5,
+                        'tipoinscricao': 6, 'statuspagamento': 7, 'formapagamento': 8,
+                        'presenca': 9, 'datainscricao': 10, 'duplicado': 11
+                    };
+                    const indices = colunasExcluidas.map(c => colunaMap[c]).filter(Boolean);
+                    if (indices.length > 0) {
+                        const style = document.createElement('style');
+                        style.textContent = indices.map(i =>
+                            `#dataTable th:nth-child(${i}), #dataTable td:nth-child(${i}) { display: none; }`
+                        ).join('\n');
+                        document.head.appendChild(style);
+                        console.log(`🚫 Colunas excluídas: ${window.CONFIG.EXCLUIR_COLUNAS}`);
+                    }
+                }
+
+                console.log('✅ Configuração aplicada com sucesso!');
+            } catch(e) {
+                console.error('❌ Erro ao aplicar configuração:', e);
+            }
+        }
+    </script>
+
+    <script>
+        let allData = [];
+        let dadosFiltrados = [];
+        let fileModificationTime = null;
+        let cronogramaData = [];
+        let cronogramaModificationTime = null;
+        let filtrosCronograma = {};
+        let abaAtiva = 'resumo';
+        let pagarDepoisServos = 0;
+        let pagarDepoisConvidados = 0;
+
+        function carregarPagarDepois() {
+            // Lê do window.CONFIG (carregado do .env) com fallback pra 0
+            pagarDepoisServos = parseInt(window.CONFIG.PAGAR_DEPOIS_SERVOS || 0) || 0;
+            pagarDepoisConvidados = parseInt(window.CONFIG.PAGAR_DEPOIS_CONVIDADOS || 0) || 0;
+            return Promise.resolve();
+        }
+
+        // Converte "nome:Nome Completo,email:E-mail" em { nome: 'Nome Completo', email: 'E-mail' }
+        function parseColunasConfig(configStr) {
+            if (!configStr || !configStr.trim()) return {};
+            const result = {};
+            configStr.split(',').forEach(pair => {
+                const idx = pair.indexOf(':');
+                if (idx > 0) {
+                    const campo = pair.slice(0, idx).trim();
+                    const rest = pair.slice(idx + 1).trim();
+                    if (!campo || !rest) return;
+                    // Extrair label opcional após |  ex: "Nome do Marido+Nome da Esposa|Nome do Casal"
+                    const pipeIdx = rest.indexOf('|');
+                    const label = pipeIdx >= 0 ? rest.slice(pipeIdx + 1).trim() : null;
+                    const colSpec = pipeIdx >= 0 ? rest.slice(0, pipeIdx).trim() : rest;
+                    // Concatenação com +  ex: "Nome do Marido+Nome da Esposa"
+                    if (colSpec.includes('+')) {
+                        result[campo] = { concat: colSpec.split('+').map(s => s.trim()), label };
+                    } else {
+                        result[campo] = label ? { col: colSpec, label } : colSpec;
+                    }
+                }
+            });
+            return result;
+        }
+
+        // Mapeia uma linha bruta do Excel para o schema interno, usando overrides de coluna
+        function mapearLinha(row, overrides) {
+            const findValue = (obj, override, ...defaultKeys) => {
+                // Normaliza override: se for objeto {col, label} extrai só a string da coluna
+                const overrideStr = override && typeof override === 'object'
+                    ? (override.col || null)
+                    : override;
+                const keys = overrideStr ? [overrideStr, ...defaultKeys] : defaultKeys;
+                for (let key of keys) {
+                    for (let objKey in obj) {
+                        if (objKey.toLowerCase().replace(/\s+/g, '') === key.toLowerCase().replace(/\s+/g, '')) {
+                            return obj[objKey];
+                        }
+                    }
+                }
+                return '';
+            };
+            // Resolve nome: suporta concatenação de colunas via {concat: [...]}
+            const resolverNome = () => {
+                const ov = overrides.nome;
+                if (ov && typeof ov === 'object' && ov.concat) {
+                    return ov.concat.map(col => findValue(row, col)).filter(Boolean).join(' & ') || '';
+                }
+                return findValue(row, ov, 'Nome', 'name') || '';
+            };
+            return {
+                nome: resolverNome(),
+                idade: parseInt(findValue(row, overrides.idade, 'Idade', 'age', 'Age') || 0),
+                email: findValue(row, overrides.email, 'Email', 'email') || '',
+                cpf: String(findValue(row, overrides.cpf, 'CPF', 'cpf') || ''),
+                celular: String(findValue(row, overrides.celular, 'Celular', 'celular', 'phone') || ''),
+                discipulador: findValue(row, overrides.discipulador, 'Discipuladora', 'Discipulador', 'discipulador') || '',
+                pastoraRede: findValue(row, overrides.pastoraRede, 'Pastora de Rede', 'pastoraRede', 'pastora') || '',
+                lider: findValue(row, overrides.lider, 'Líder', 'lider', 'leader') || 'Não',
+                tipoInscricao: findValue(row, overrides.tipoInscricao, 'TipoInscrição', 'Tipo Inscrição', 'Tipo de Inscrição', 'tipoInscricao', 'subscription type') || '',
+                nomeFamiliar: findValue(row, overrides.nomeFamiliar, 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
+                telefoneFamiliar: findValue(row, overrides.telefoneFamiliar, 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
+                statusPagamento: findValue(row, overrides.statusPagamento, 'StatusPagamento', 'Status Pagamento', 'statusPagamento', 'payment status') || 'Pending',
+                formaPagamento: findValue(row, overrides.formaPagamento, 'FormaPagamento', 'Forma Pagamento', 'formaPagamento', 'payment method') || '',
+                presenca: findValue(row, overrides.presenca, 'Presença', 'presenca', 'Presença', 'presence', 'attendance') || '',
+                dataInscricao: findValue(row, overrides.dataInscricao, 'DataInscrição', 'Data Inscrição', 'dataInscricao', 'subscription date') || ''
+            };
+        }
+
+        // Carrega um arquivo Excel e retorna as linhas mapeadas, ou null se não existir
+        async function carregarArquivoExcel(filename, overrides) {
+            let response = await fetch(`./data/${filename}`).catch(() => null);
+            if (!response || !response.ok) {
+                response = await fetch(`/data/${filename}`).catch(() => null);
+            }
+            if (!response || !response.ok) return null;
+
+            const lastModified = response.headers.get('Last-Modified');
+            const arrayBuffer = await response.arrayBuffer();
+            if (!arrayBuffer || arrayBuffer.byteLength === 0) return null;
+
+            const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(worksheet);
+            if (!rawData || rawData.length === 0) return null;
+
+            return {
+                rows: rawData.map(row => mapearLinha(row, overrides)),
+                lastModified: lastModified ? new Date(lastModified) : null
+            };
+        }
+
+        async function carregarDadosExcel() {
+            try {
+                const overrides1 = parseColunasConfig(window.CONFIG.GREX_FONTE1_COLUNAS || '');
+                const overrides2 = parseColunasConfig(window.CONFIG.GREX_FONTE2_COLUNAS || '');
+
+                // Atualizar cabeçalho "Nome" se um label foi especificado (ex: |Nome do Casal)
+                const nomeOv = overrides1.nome || overrides2.nome;
+                if (nomeOv && typeof nomeOv === 'object' && nomeOv.label) {
+                    const thNome = document.getElementById('thNome');
+                    if (thNome) thNome.textContent = nomeOv.label;
+                }
+
+                console.log('🔄 Tentando carregar encontro.xlsx...');
+                const fonte1 = await carregarArquivoExcel('encontro.xlsx', overrides1);
+                if (!fonte1) {
+                    console.warn('⚠️ Arquivo encontro.xlsx não encontrado. Aguardando upload...');
+                    return false;
+                }
+                console.log(`✅ encontro.xlsx carregado! ${fonte1.rows.length} registros`);
+
+                let dados = fonte1.rows;
+                let lastMod = fonte1.lastModified;
+
+                const fonte2 = await carregarArquivoExcel('encontro2.xlsx', overrides2);
+                if (fonte2) {
+                    console.log(`✅ encontro2.xlsx carregado! ${fonte2.rows.length} registros`);
+                    dados = dados.concat(fonte2.rows);
+                    if (fonte2.lastModified && (!lastMod || fonte2.lastModified > lastMod)) {
+                        lastMod = fonte2.lastModified;
+                    }
+                }
+
+                fileModificationTime = lastMod;
+                if (fileModificationTime) {
+                    console.log(`📅 Data do arquivo: ${fileModificationTime.toLocaleString('pt-BR')}`);
+                }
+
+                allData = dados;
+                console.log(`✅ Total combinado: ${allData.length} registros`);
+
+                // Filtrar discipuladores ignorados
+                const ignoraDiscipuladoresStr = window.CONFIG.IGNORA_DISCIPULADOR || '';
+                if (ignoraDiscipuladoresStr.trim()) {
+                    const ignoraList = ignoraDiscipuladoresStr
+                        .split(',')
+                        .map(d => d.trim().toLowerCase())
+                        .filter(d => d.length > 0);
+
+                    const beforeFilter = allData.length;
+                    allData = allData.filter(item =>
+                        !ignoraList.includes((item.discipulador || '').toLowerCase())
+                    );
+
+                    if (allData.length < beforeFilter) {
+                        console.log(`🔍 Discipuladores ignorados: ${ignoraList.join(', ')}`);
+                        console.log(`📊 Dados após filtro: ${allData.length} registros (${beforeFilter - allData.length} removidos)`);
+                    }
+                }
+
+                if (allData.length > 0) {
+                    console.log('📊 Primeiros dados:', {
+                        nome: allData[0].nome,
+                        presenca: allData[0].presenca,
+                        presencaLower: String(allData[0].presenca || '').toLowerCase().trim(),
+                        isPresenteResult: isPresente(allData[0].presenca),
+                        statusPagamento: allData[0].statusPagamento,
+                        tipoInscricao: allData[0].tipoInscricao
+                    });
+                }
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao carregar Excel:', error);
+                return false;
+            }
+        }
+
+        async function carregarCronograma() {
+            try {
+                console.debug('🔄 Tentando carregar cronograma.xlsx...');
+
+                let response = await fetch('./data/cronograma.xlsx').catch(() => null);
+                if (!response) {
+                    response = await fetch('/data/cronograma.xlsx').catch(() => null);
+                }
+
+                if (!response || !response.ok) {
+                    console.debug('⚠️ Arquivo cronograma.xlsx não encontrado - usando empty state');
+                    return false;
+                }
+
+                const lastModified = response.headers.get('Last-Modified');
+                if (lastModified) {
+                    cronogramaModificationTime = new Date(lastModified);
+                    console.log(`📅 Data do cronograma: ${cronogramaModificationTime.toLocaleString('pt-BR')}`);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+                    console.warn('⚠️ Arquivo cronograma vazio ou inválido');
+                    return false;
+                }
+
+                const workbook = XLSX.read(new Uint8Array(arrayBuffer), {type: 'array'});
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+                if (!rawData || rawData.length === 0) {
+                    console.warn('⚠️ Nenhum dado encontrado no cronograma');
+                    return false;
+                }
+
+                cronogramaData = rawData.map(row => {
+                    // Função auxiliar para encontrar valores com correspondência flexível (case/whitespace insensitive)
+                    const findValue = (obj, ...keys) => {
+                        for (let key of keys) {
+                            for (let objKey in obj) {
+                                if (objKey.toLowerCase().replace(/\s+/g, '').replace(/\.$/, '') === key.toLowerCase().replace(/\s+/g, '')) {
+                                    const value = obj[objKey];
+                                    return value !== null && value !== undefined ? value : '';
+                                }
+                            }
+                        }
+                        return '';
+                    };
+
+                    return {
+                        nome: findValue(row, 'NOME', 'Nome', 'name') || '',
+                        dia: findValue(row, 'DIA', 'Dia', 'day') || '',
+                        inicio: findValue(row, 'INICIO', 'Início', 'Inicio', 'inicio', 'start') || '',
+                        fim: findValue(row, 'FIM', 'Fim', 'fim', 'end') || '',
+                        duracao: findValue(row, 'DURACAO', 'Duração', 'Duracao', 'duracao', 'duration') || '',
+                        laranja: findValue(row, 'LARANJA', 'Laranja', 'laranja') || '',
+                        amarelo: findValue(row, 'AMARELO', 'Amarelo', 'amarelo') || '',
+                        verde: findValue(row, 'VERDE', 'Verde', 'verde') || '',
+                        rosa: findValue(row, 'ROSA', 'Rosa', 'rosa') || '',
+                        obs: findValue(row, 'OBS', 'Obs', 'obs', 'Observações', 'observacoes', 'notes') || ''
+                    };
+                });
+
+                console.log(`✅ Cronograma carregado com sucesso! ${cronogramaData.length} eventos`);
+                if (cronogramaData.length > 0) {
+                    console.log('📊 Primeiro evento:', {
+                        nome: cronogramaData[0].nome,
+                        dia: cronogramaData[0].dia,
+                        inicio: cronogramaData[0].inicio
+                    });
+                }
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao carregar cronograma:', error);
+                return false;
+            }
+        }
+
+        // Recarregar arquivos a cada 30 segundos
+        setInterval(async () => {
+            await carregarPagarDepois();
+            carregarDadosExcel().then(sucesso => {
+                if (sucesso) {
+                    atualizarDashboard();
+                    renderizarDiscipulado();
+                    renderizarRede();
+                    renderizarResumoDados();
+                    atualizarTimestamp();
+                }
+            });
+
+            carregarCronograma().then(sucesso => {
+                if (sucesso) {
+                    filtrosCronograma = {}; // Resetar filtros ao recarregar
+                    renderizarCronogramaResumo();
+                    renderizarCronogramaTabela(cronogramaData);
+                    atualizarTimestampCronograma();
+                }
+            });
+        }, 30000);
+
+        function buildChaveDuplicado(item) {
+            const ignorar = new Set(
+                (window.CONFIG.DUPLICADO_IGNORAR || 'formaPagamento,presenca,dataInscricao')
+                    .split(',').map(s => s.trim()).filter(Boolean)
+            );
+            const campos = ['nome','idade','email','cpf','celular','discipulador','pastoraRede','lider','tipoInscricao','nomeFamiliar','telefoneFamiliar','statusPagamento','formaPagamento','presenca','dataInscricao'];
+            return campos.filter(c => !ignorar.has(c)).map(c => String(item[c] ?? '').toLowerCase().trim()).join('|');
+        }
+
+        function detectarDuplicados(data) {
+            const contagem = new Map();
+            data.forEach(item => {
+                const chave = buildChaveDuplicado(item);
+                contagem.set(chave, (contagem.get(chave) || 0) + 1);
+            });
+            const duplicados = new Set();
+            contagem.forEach((count, chave) => {
+                if (count > 1) duplicados.add(chave);
+            });
+            return duplicados;
+        }
+
+        function calcularMetricas() {
+            const duplicados = detectarDuplicados(allData);
+            const totalInscritos = allData.length;
+
+            // Melhorado mapeamento de status (mesmo da tabela)
+            let totalPagos = 0;
+            let totalRejeitados = 0;
+            let totalPendentes = 0;
+            let totalConvidados = 0;
+            let totalServos = 0;
+            let totalServosPagos = 0;
+            let totalConvidadosPagos = 0;
+
+            allData.forEach(d => {
+                const statusLower = String(d.statusPagamento || '').toLowerCase().trim();
+                const isPago = statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado' || statusLower === 'confirm';
+
+                if (isPago) {
+                    totalPagos++;
+                } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
+                    totalRejeitados++;
+                } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando' || statusLower === 'aguardando') {
+                    totalPendentes++;
+                } else {
+                    // Default para valores desconhecidos
+                    totalPendentes++;
+                }
+
+                const tipoLower = String(d.tipoInscricao || '').toLowerCase().trim();
+                if (tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest')) {
+                    totalConvidados++;
+                    if (isPago) totalConvidadosPagos++;
+                } else if (tipoLower.includes('servo') || tipoLower.includes('membro')) {
+                    totalServos++;
+                    if (isPago) totalServosPagos++;
+                }
+            });
+
+            // Subtrair "Pagar Depois"
+            totalPagos = Math.max(0, totalPagos - pagarDepoisServos - pagarDepoisConvidados);
+            totalServosPagos = Math.max(0, totalServosPagos - pagarDepoisServos);
+            totalConvidadosPagos = Math.max(0, totalConvidadosPagos - pagarDepoisConvidados);
+
+            let totalDuplicados = 0;
+            allData.forEach(d => {
+                const chave = buildChaveDuplicado(d);
+                if (duplicados.has(chave)) totalDuplicados++;
+            });
+            return {totalInscritos, totalPagos, totalRejeitados, totalPendentes, totalDuplicados, totalConvidados, totalServos, totalServosPagos, totalConvidadosPagos, duplicados};
+        }
+
+        function calcularMetricasPorDiscipulado() {
+            const duplicados = detectarDuplicados(allData);
+            const discipuladoMap = new Map();
+            allData.forEach(item => {
+                const discipuladorRaw = item.discipulador || 'Sem Discipulador';
+                const discipulador = discipuladorRaw.trim();
+                const chaveMap = discipulador.toLowerCase();
+                if (!discipuladoMap.has(chaveMap)) {
+                    discipuladoMap.set(chaveMap, {
+                        nome: discipulador,
+                        pagos: 0,
+                        pendentes: 0,
+                        rejeitados: 0,
+                        duplicados: 0,
+                        servo: 0,
+                        convidado: 0,
+                        presentes: 0
+                    });
+                }
+                const metrics = discipuladoMap.get(chaveMap);
+
+                // Melhorado mapeamento de status
+                const statusLower = String(item.statusPagamento || '').toLowerCase().trim();
+                if (statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado' || statusLower === 'confirm') {
+                    metrics.pagos++;
+                } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando' || statusLower === 'aguardando') {
+                    metrics.pendentes++;
+                } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
+                    metrics.rejeitados++;
+                } else {
+                    // Default para valores desconhecidos
+                    metrics.pendentes++;
+                }
+
+                // Contar Servo(a) e Convidado(a)
+                const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
+                if (tipoLower.includes('servo') || tipoLower.includes('membro')) {
+                    metrics.servo++;
+                } else if (tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest')) {
+                    metrics.convidado++;
+                }
+
+                const chave = buildChaveDuplicado(item);
+                if (duplicados.has(chave)) metrics.duplicados++;
+                if (isPresente(item.presenca)) metrics.presentes++;
+            });
+            return discipuladoMap;
+        }
+
+        // Função auxiliar para verificar se está presente
+        function isPresente(presenca) {
+            const presencaLower = String(presenca || '').toLowerCase().trim();
+            
+            // Apenas valores que indicam PRESENTE
+            const valoresPresente = ['sim', 'yes', 'true', 'presente', 'present', 
+                                     '✓', 'x', '1', 'ok', 'v', 'p'];
+            
+            if (valoresPresente.includes(presencaLower)) {
+                return true;
+            }
+            
+            // Qualquer outro valor é considerado AUSENTE (incluindo vazio, 'não', 'ausente', 'absent', etc)
+            return false;
+        }
+
+        function renderizarEmptyState(container, titulo, descricao, icone = '📭') {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">${icone}</div>
+                    <div class="empty-state-title">${titulo}</div>
+                    <div class="empty-state-description">${descricao}</div>
+                </div>
+            `;
+        }
+
+        let filtrosAtivos = {};
+        let statusDescricao = 'Aguardando dados...';
+        let statusCor = '';
+
+        function _aplicarStatusDot(diffMinutos, timeString) {
+            statusDescricao = timeString;
+            const dot = document.getElementById('statusDot');
+            if (!dot) return;
+            dot.classList.remove('green', 'yellow', 'red');
+            if (diffMinutos === null) { statusCor = ''; return; }
+            if (diffMinutos <= 3) { dot.classList.add('green'); statusCor = 'green'; }
+            else if (diffMinutos <= 20) { dot.classList.add('yellow'); statusCor = 'yellow'; }
+            else { dot.classList.add('red'); statusCor = 'red'; }
+        }
+
+        function calcularResumoDados() {
+            const resumo = {
+                servos: 0,
+                convidados: 0,
+                pagos: 0,
+                pendentes: 0,
+                presentes: 0,
+                rejeitados: 0,
+                duplicados: 0
+            };
+
+            const searchInput = document.getElementById('searchInput');
+            const dados = dadosFiltrados.length > 0 || Object.keys(filtrosAtivos).length > 0 || (searchInput && searchInput.value.trim()) ? dadosFiltrados : allData;
+            if (!dados || dados.length === 0) return resumo;
+
+            const duplicados = detectarDuplicados(allData);
+
+            dados.forEach(item => {
+                // Contar Servos e Convidados
+                const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
+                if (tipoLower.includes('servo') || tipoLower.includes('membro')) {
+                    resumo.servos++;
+                } else if (tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest')) {
+                    resumo.convidados++;
+                }
+
+                // Contar status pagamento
+                const statusLower = String(item.statusPagamento || '').toLowerCase().trim();
+                if (statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado' || statusLower === 'confirm') {
+                    resumo.pagos++;
+                } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
+                    resumo.rejeitados++;
+                } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando' || statusLower === 'aguardando') {
+                    resumo.pendentes++;
+                } else {
+                    resumo.pendentes++;
+                }
+
+                // Contar presentes
+                if (isPresente(item.presenca)) {
+                    resumo.presentes++;
+                }
+
+                // Contar duplicados
+                const chave = buildChaveDuplicado(item);
+                if (duplicados.has(chave)) {
+                    resumo.duplicados++;
+                }
+            });
+
+            if (resumo.presentes > 0 || resumo.presentes === 0) {
+                console.log(`📋 Resumo - Presentes: ${resumo.presentes} de ${dados.length} (${Math.round(resumo.presentes/dados.length*100)}%)`);
+            }
+
+            return resumo;
+        }
+
+        function renderizarResumoDados() {
+            const resumo = calcularResumoDados();
+            const container = document.getElementById('dadosResumo');
+
+            console.log('🎯 Renderizando resumo de dados:', {
+                presentes: resumo.presentes,
+                servos: resumo.servos,
+                convidados: resumo.convidados,
+                pagos: resumo.pagos,
+                pendentes: resumo.pendentes,
+                rejeitados: resumo.rejeitados,
+                duplicados: resumo.duplicados
+            });
+
+            let cards = [
+                { label: 'Servos', valor: resumo.servos, filtro: 'servo' },
+                { label: 'Convidados', valor: resumo.convidados, filtro: 'convidado' },
+                { label: 'Pagos', valor: resumo.pagos, filtro: 'paid' },
+                { label: 'Pendentes', valor: resumo.pendentes, filtro: 'pending' },
+                { label: 'Presentes', valor: resumo.presentes, filtro: 'presente' },
+                { label: 'Rejeitados', valor: resumo.rejeitados, filtro: 'rejected' },
+                { label: 'Duplicados', valor: resumo.duplicados, filtro: 'duplicado' }
+            ];
+            if ((window.CONFIG.SERVOS || 'S').toUpperCase() === 'N')
+                cards = cards.filter(c => c.filtro !== 'servo');
+            if ((window.CONFIG.CONVIDADOS || 'S').toUpperCase() === 'N')
+                cards = cards.filter(c => c.filtro !== 'convidado');
+
+            container.innerHTML = cards.map(card => `
+                <div class="resumo-card ${filtrosAtivos[card.filtro] ? 'ativo' : ''}" data-filter="${card.filtro}">
+                    <div class="resumo-label">${card.label}</div>
+                    <div class="resumo-numero">${card.valor}</div>
+                </div>
+            `).join('');
+
+            // Adicionar listeners aos cards
+            document.querySelectorAll('.resumo-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const filtro = this.dataset.filter;
+                    if (filtrosAtivos[filtro]) {
+                        delete filtrosAtivos[filtro];
+                    } else {
+                        filtrosAtivos[filtro] = true;
+                    }
+                    aplicarFiltros();
+                });
+            });
+        }
+
+        function renderizarCronogramaResumo() {
+            const container = document.getElementById('cronogramaResumo');
+            let sabados = 0;
+            let domingos = 0;
+
+            cronogramaData.forEach(item => {
+                const diaLower = String(item.dia || '').toLowerCase().trim();
+                if (diaLower.includes('sabado') || diaLower.includes('sábado')) {
+                    sabados++;
+                } else if (diaLower.includes('domingo')) {
+                    domingos++;
+                }
+            });
+
+            const cards = [
+                { label: 'Sábado', valor: sabados, filtro: 'sabado' },
+                { label: 'Domingo', valor: domingos, filtro: 'domingo' }
+            ];
+
+            container.innerHTML = cards.map(card => `
+                <div class="resumo-card ${filtrosCronograma[card.filtro] ? 'ativo' : ''}" data-filter="${card.filtro}">
+                    <div class="resumo-label">${card.label}</div>
+                </div>
+            `).join('');
+
+            // Adicionar listeners aos cards (exclusivo - só um filtro por vez)
+            document.querySelectorAll('#cronogramaResumo .resumo-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const filtro = this.dataset.filter;
+
+                    // Se clicou no mesmo, desseleciona
+                    if (filtrosCronograma[filtro]) {
+                        delete filtrosCronograma[filtro];
+                    } else {
+                        // Limpa outros filtros e aplica este
+                        filtrosCronograma = {};
+                        filtrosCronograma[filtro] = true;
+                    }
+
+                    renderizarCronogramaResumo();
+                    aplicarFiltrosCronograma();
+                });
+            });
+        }
+
+        function aplicarFiltrosCronograma() {
+            if (Object.keys(filtrosCronograma).length === 0) {
+                renderizarCronogramaTabela(cronogramaData);
+                return;
+            }
+
+            const filtrados = cronogramaData.filter(item => {
+                for (let filtro of Object.keys(filtrosCronograma)) {
+                    const diaLower = String(item.dia || '').toLowerCase().trim();
+
+                    let passa = false;
+                    if (filtro === 'sabado' && (diaLower.includes('sabado') || diaLower.includes('sábado'))) passa = true;
+                    else if (filtro === 'domingo' && diaLower.includes('domingo')) passa = true;
+                    else if (filtro === 'todos') passa = true;
+
+                    if (!passa) return false;
+                }
+                return true;
+            });
+
+            renderizarCronogramaTabela(filtrados);
+        }
+
+        function renderizarCronogramaTabela(dados) {
+            const tbody = document.getElementById('cronogramaTableBody');
+            const tableWrapper = document.querySelector('.cronograma-resumo').parentElement.querySelector('.table-wrapper');
+            const tableHeader = document.querySelector('.cronograma-resumo').parentElement.querySelector('.table-header');
+            const emptyStateContainer = document.getElementById('cronogramaEmptyStateContainer');
+
+            if (!dados || dados.length === 0) {
+                if (tableHeader) tableHeader.style.display = 'block';
+                if (tableWrapper) tableWrapper.style.display = 'none';
+
+                if (!cronogramaData || cronogramaData.length === 0) {
+                    emptyStateContainer.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon">📅</div>
+                        <div class="empty-state-title">Nenhum evento carregado</div>
+                        <div class="empty-state-description">Aguarde o upload do arquivo de cronograma.</div>
+                    </div>`;
+                } else {
+                    emptyStateContainer.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-title">Nenhum resultado encontrado</div>
+                        <div class="empty-state-description">Sua busca não retornou resultados.</div>
+                    </div>`;
+                }
+                return;
+            }
+
+            if (tableHeader) tableHeader.style.display = 'block';
+            if (tableWrapper) tableWrapper.style.display = 'block';
+            emptyStateContainer.innerHTML = '';
+
+            tbody.innerHTML = dados.map(item => {
+                const diaLower = String(item.dia || '').toLowerCase().trim();
+                let diaFundo = '';
+
+                // Definir cor de fundo baseado no dia
+                if (diaLower.includes('sabado') || diaLower.includes('sábado')) {
+                    diaFundo = 'background-color: #3b82f6; color: white;'; // Azul
+                } else if (diaLower.includes('domingo')) {
+                    diaFundo = 'background-color: #8b5cf6; color: white;'; // Roxo
+                } else if (diaLower === 'todos') {
+                    diaFundo = 'background-color: #1f2937; color: white;'; // Preto
+                }
+
+                // Função para renderizar colunas de cores (Laranja, Amarelo, Verde, Rosa)
+                const renderCorCol = (valor) => {
+                    const valorStr = String(valor || '').trim();
+                    if (valorStr.toUpperCase() === 'TODOS') {
+                        return `<td><span class="status-badge presenca-nao" style="background-color: #1f2937;">${valorStr}</span></td>`;
+                    }
+                    return `<td>${valorStr}</td>`;
+                };
+
+                // Função para formatar time objects corretamente
+                const formatarHora = (valor) => {
+                    // Se for número (decimal de hora do Excel), converter para HH:MM
+                    if (typeof valor === 'number' && valor >= 0 && valor < 1) {
+                        // Converter para segundos totais
+                        let segundosTotais = Math.round(valor * 24 * 60 * 60);
+                        // Adicionar 1 segundo
+                        segundosTotais += 1;
+                        // Converter de volta para HH:MM
+                        const horas = Math.floor(segundosTotais / 3600);
+                        const minutos = Math.floor((segundosTotais % 3600) / 60);
+                        return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+                    }
+
+                    const valorStr = String(valor || '').trim();
+                    // Se for uma fórmula Excel, deixa como está
+                    if (valorStr.startsWith('=')) {
+                        return valorStr;
+                    }
+                    // Se for um time object (HH:MM ou HH:MM:SS), remover segundos
+                    if (/^\d{2}:\d{2}:\d{2}$/.test(valorStr)) {
+                        const partes = valorStr.split(':');
+                        let segundos = parseInt(partes[2]) || 0;
+                        let minutos = parseInt(partes[1]) || 0;
+                        let horas = parseInt(partes[0]) || 0;
+
+                        // Adicionar 1 segundo
+                        segundos += 1;
+                        if (segundos >= 60) {
+                            segundos = 0;
+                            minutos += 1;
+                            if (minutos >= 60) {
+                                minutos = 0;
+                                horas += 1;
+                            }
+                        }
+
+                        return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+                    }
+                    // Se for HH:MM, adicionar 1 minuto
+                    if (/^\d{2}:\d{2}$/.test(valorStr)) {
+                        const partes = valorStr.split(':');
+                        let minutos = parseInt(partes[1]) + 1;
+                        let horas = parseInt(partes[0]);
+
+                        if (minutos >= 60) {
+                            minutos = 0;
+                            horas += 1;
+                        }
+
+                        return `${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}`;
+                    }
+                    return valorStr;
+                };
+
+                // Renderizar valores mantendo tipos originais
+                const inicio = formatarHora(item.inicio);
+                const fim = formatarHora(item.fim);
+                const duracao = formatarHora(item.duracao);
+
+                return `<tr>
+                    <td>${item.nome}</td><td style="${diaFundo}">${item.dia}</td><td>${inicio}</td><td>${fim}</td>
+                    <td>${duracao}</td>${renderCorCol(item.laranja)}${renderCorCol(item.amarelo)}${renderCorCol(item.verde)}${renderCorCol(item.rosa)}<td>${item.obs}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function atualizarTimestampCronograma() {
+            if (abaAtiva !== 'cronograma') return;
+            if (cronogramaModificationTime) {
+                const agora = new Date();
+                const diffMs = agora - cronogramaModificationTime;
+                const diffMinutos = Math.floor(diffMs / 60000);
+                let timeString;
+                if (diffMinutos === 0) timeString = 'Atualizado agora';
+                else if (diffMinutos === 1) timeString = 'Atualizado há 1 minuto';
+                else if (diffMinutos < 60) timeString = `Atualizado há ${diffMinutos} minutos`;
+                else { const h = Math.floor(diffMinutos / 60); timeString = h === 1 ? 'Atualizado há 1 hora' : `Atualizado há ${h} horas`; }
+                _aplicarStatusDot(diffMinutos, timeString);
+            } else {
+                _aplicarStatusDot(null, 'Aguardando dados...');
+            }
+        }
+
+        function obterDadosFiltrados() {
+            const termo = document.getElementById('searchInput').value.toLowerCase().trim();
+            const _duplicados = detectarDuplicados(allData);
+            let dados = allData;
+
+            if (Object.keys(filtrosAtivos).length > 0) {
+                dados = dados.filter(item => {
+                    for (let filtro of Object.keys(filtrosAtivos)) {
+                        const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
+                        const statusLower = String(item.statusPagamento || '').toLowerCase().trim();
+                        const presencaLower = String(item.presenca || '').toLowerCase().trim();
+                        const chave = buildChaveDuplicado(item);
+                        const isDuplicado = _duplicados.has(chave);
+
+                        let passa = false;
+                        if (filtro === 'servo' && (tipoLower.includes('servo') || tipoLower.includes('membro'))) passa = true;
+                        else if (filtro === 'convidado' && (tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest'))) passa = true;
+                        else if (filtro === 'paid' && (statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado')) passa = true;
+                        else if (filtro === 'pending' && (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando')) passa = true;
+                        else if (filtro === 'presente' && isPresente(item.presenca)) passa = true;
+                        else if (filtro === 'rejected' && (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied')) passa = true;
+                        else if (filtro === 'duplicado' && isDuplicado) passa = true;
+
+                        if (!passa) return false;
+                    }
+                    return true;
+                });
+            }
+
+            if (termo) {
+                dados = dados.filter(item =>
+                    item.nome.toLowerCase().includes(termo) ||
+                    item.email.toLowerCase().includes(termo) ||
+                    item.cpf.includes(termo) ||
+                    item.celular.includes(termo) ||
+                    item.discipulador.toLowerCase().includes(termo) ||
+                    item.tipoInscricao.toLowerCase().includes(termo) ||
+                    item.formaPagamento.toLowerCase().includes(termo)
+                );
+            }
+
+            return dados;
+        }
+
+        function aplicarFiltros() {
+            renderizarTabela(obterDadosFiltrados());
+        }
+
+        function navegarParaDadosFiltrado(nomeDiscipulador) {
+            const navDados = document.querySelector('.nav-item[data-page="dados"]');
+            if (navDados) navDados.click();
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = nomeDiscipulador;
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        }
+
+        function renderizarDiscipulado() {
+            const metricas = calcularMetricasPorDiscipulado();
+            const grid = document.getElementById('discipuladoGrid');
+
+            if (!allData || allData.length === 0) {
+                renderizarEmptyState(
+                    grid,
+                    'Nenhum dado carregado',
+                    'Aguarde o upload do arquivo de inscritos para visualizar a análise por discipulado.',
+                    '📊'
+                );
+                return;
+            }
+
+            if (metricas.size === 0) {
+                renderizarEmptyState(
+                    grid,
+                    'Nenhum discipulador encontrado',
+                    'Não há discipuladores nos dados carregados.',
+                    '👥'
+                );
+                return;
+            }
+
+            const sortedMetrics = Array.from(metricas.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+            const _discServos = (window.CONFIG.SERVOS || 'S').toUpperCase() !== 'N';
+            const _discConvidados = (window.CONFIG.CONVIDADOS || 'S').toUpperCase() !== 'N';
+            grid.innerHTML = sortedMetrics.map(metric => `
+                <div class="discipulado-card" onclick="navegarParaDadosFiltrado('${metric.nome.replace(/'/g, "\\'")}')">
+                    <div class="discipulado-title">${metric.nome}</div>
+                    <div class="discipulado-metrics">
+                        <div class="metric-item"><div class="metric-label">Pagos</div><div class="metric-value paid">${metric.pagos}</div></div>
+                        <div class="metric-item"><div class="metric-label">Pendentes</div><div class="metric-value pending">${metric.pendentes}</div></div>
+                        <div class="metric-item"><div class="metric-label">Rejeitados</div><div class="metric-value rejected">${metric.rejeitados}</div></div>
+                        <div class="metric-item"><div class="metric-label">Duplicados</div><div class="metric-value duplicado">${metric.duplicados}</div></div>
+                        <div class="metric-item"><div class="metric-label">Presentes</div><div class="metric-value presente">${metric.presentes}</div></div>
+                        ${_discServos ? `<div class="metric-item"><div class="metric-label">Servos</div><div class="metric-value">${metric.servo}</div></div>` : ''}
+                        ${_discConvidados ? `<div class="metric-item"><div class="metric-label">Convidados</div><div class="metric-value">${metric.convidado}</div></div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function calcularMetricasPorRede() {
+            const duplicados = detectarDuplicados(allData);
+            const redeMap = new Map();
+            allData.forEach(item => {
+                const rede = item.pastoraRede || 'Sem Rede';
+                if (!redeMap.has(rede)) {
+                    redeMap.set(rede, { nome: rede, pagos: 0, pendentes: 0, rejeitados: 0, duplicados: 0, servo: 0, convidado: 0 });
+                }
+                const metrics = redeMap.get(rede);
+                const statusLower = String(item.statusPagamento || '').toLowerCase().trim();
+                if (statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado' || statusLower === 'confirm') {
+                    metrics.pagos++;
+                } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando' || statusLower === 'aguardando') {
+                    metrics.pendentes++;
+                } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
+                    metrics.rejeitados++;
+                } else {
+                    metrics.pendentes++;
+                }
+                const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
+                if (tipoLower.includes('servo') || tipoLower.includes('membro')) {
+                    metrics.servo++;
+                } else if (tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest')) {
+                    metrics.convidado++;
+                }
+                const chave = buildChaveDuplicado(item);
+                if (duplicados.has(chave)) metrics.duplicados++;
+            });
+            return redeMap;
+        }
+
+        function renderizarRede() {
+            const metricas = calcularMetricasPorRede();
+            const grid = document.getElementById('redeGrid');
+            if (!allData || allData.length === 0) {
+                renderizarEmptyState(grid, 'Nenhum dado carregado', 'Aguarde o upload do arquivo de inscritos para visualizar a análise por rede.', '🌐');
+                return;
+            }
+            if (metricas.size === 0) {
+                renderizarEmptyState(grid, 'Nenhuma rede encontrada', 'Não há pastoras de rede nos dados carregados.', '🌐');
+                return;
+            }
+            const sortedMetrics = Array.from(metricas.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+            const _redeServos = (window.CONFIG.SERVOS || 'S').toUpperCase() !== 'N';
+            const _redeConvidados = (window.CONFIG.CONVIDADOS || 'S').toUpperCase() !== 'N';
+            grid.innerHTML = sortedMetrics.map(metric => `
+                <div class="discipulado-card">
+                    <div class="discipulado-title">${metric.nome}</div>
+                    <div class="discipulado-metrics">
+                        <div class="metric-item"><div class="metric-label">Pagos</div><div class="metric-value paid">${metric.pagos}</div></div>
+                        <div class="metric-item"><div class="metric-label">Pendentes</div><div class="metric-value pending">${metric.pendentes}</div></div>
+                        <div class="metric-item"><div class="metric-label">Rejeitados</div><div class="metric-value rejected">${metric.rejeitados}</div></div>
+                        <div class="metric-item"><div class="metric-label">Duplicados</div><div class="metric-value duplicado">${metric.duplicados}</div></div>
+                        ${_redeServos ? `<div class="metric-item"><div class="metric-label">Servos</div><div class="metric-value">${metric.servo}</div></div>` : ''}
+                        ${_redeConvidados ? `<div class="metric-item"><div class="metric-label">Convidados</div><div class="metric-value">${metric.convidado}</div></div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderizarTabela(dados) {
+            dadosFiltrados = dados;
+            const metrics = calcularMetricas();
+            const tbody = document.getElementById('tableBody');
+            const tableWrapper = document.querySelector('.table-wrapper');
+            const tableHeader = document.querySelector('.table-header');
+            const emptyStateContainer = document.getElementById('emptyStateContainer');
+
+            if (!dados || dados.length === 0) {
+                // Manter header visível (search box), ocultar apenas wrapper
+                if (tableHeader) tableHeader.style.display = 'block';
+                if (tableWrapper) tableWrapper.style.display = 'none';
+
+                if (!allData || allData.length === 0) {
+                    emptyStateContainer.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-title">Nenhum dado carregado</div>
+                        <div class="empty-state-description">Aguarde o upload do arquivo de inscritos para visualizar a tabela completa.</div>
+                    </div>`;
+                } else {
+                    emptyStateContainer.innerHTML = `<div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-title">Nenhum resultado encontrado</div>
+                        <div class="empty-state-description">Sua busca não retornou resultados. Tente outros termos de busca.</div>
+                    </div>`;
+                }
+                return;
+            }
+
+            // Mostrar header e wrapper se houver dados
+            if (tableHeader) tableHeader.style.display = 'block';
+            if (tableWrapper) tableWrapper.style.display = 'block';
+            emptyStateContainer.innerHTML = '';
+
+            tbody.innerHTML = dados.map(item => {
+                const chave = buildChaveDuplicado(item);
+                const isDuplicado = metrics.duplicados.has(chave);
+
+                // Mapear status com badges
+                let statusBadge = '';
+                const statusLower = String(item.statusPagamento || '').toLowerCase().trim();
+
+                if (statusLower === 'paid' || statusLower === 'approved' || statusLower === 'confirmado' || statusLower === 'confirm') {
+                    statusBadge = '<span class="status-badge status-paid">Aprovado</span>';
+                } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'processando' || statusLower === 'aguardando') {
+                    statusBadge = '<span class="status-badge status-pending">Processando</span>';
+                } else if (statusLower === 'rejected' || statusLower === 'rejeitado' || statusLower === 'denied') {
+                    statusBadge = '<span class="status-badge status-rejected">Rejeitado</span>';
+                } else {
+                    statusBadge = `<span class="status-badge status-pending">${item.statusPagamento}</span>`;
+                }
+
+                // Formatar data: DD/MM HH:MI
+                let dataFormatada = item.dataInscricao;
+                if (item.dataInscricao && item.dataInscricao.length > 0) {
+                    try {
+                        let data = new Date(item.dataInscricao);
+                        if (!isNaN(data.getTime())) {
+                            const dia = String(data.getDate()).padStart(2, '0');
+                            const mes = String(data.getMonth() + 1).padStart(2, '0');
+                            const hora = String(data.getHours()).padStart(2, '0');
+                            const minuto = String(data.getMinutes()).padStart(2, '0');
+                            dataFormatada = `${dia}/${mes} ${hora}:${minuto}`;
+                        }
+                    } catch (e) {
+                        dataFormatada = item.dataInscricao;
+                    }
+                }
+
+                // Badge de Presença
+                const presencaBadge = isPresente(item.presenca)
+                    ? '<span class="status-badge presenca-sim">Sim</span>'
+                    : '<span class="status-badge presenca-nao">Não</span>';
+
+                // Formatar celular (mostrar só últimos 4)
+                const celularMasked = item.celular.length > 4
+                    ? '••••' + item.celular.slice(-4)
+                    : item.celular;
+
+                // WhatsApp link
+                const whatsappLink = item.celular.replace(/\D/g, ''); // Remove caracteres não numéricos
+                const whatsappUrl = `https://wa.me/55${whatsappLink}`;
+
+                // Traduzir método de pagamento
+                const metodoTraduzido = {
+                    'credit card': 'Crédito',
+                    'crédito': 'Crédito',
+                    'credit': 'Crédito',
+                    'debit card': 'Débito',
+                    'débito': 'Débito',
+                    'debit': 'Débito',
+                    'pix': 'Pix',
+                    'boleto': 'Boleto',
+                    'transfer': 'Transferência',
+                    'transferência': 'Transferência',
+                    'cash': 'Dinheiro',
+                    'dinheiro': 'Dinheiro'
+                }[item.formaPagamento.toLowerCase().trim()] || item.formaPagamento;
+
+                // Celular com WhatsApp
+                const celularComWhats = `<div class="celular-with-whats">
+                    <span>${celularMasked}</span>
+                    <a href="${whatsappUrl}" target="_blank" class="whats-link" title="Enviar mensagem no WhatsApp">
+                        <img src="imgs/whatsapp.png" alt="WhatsApp">
+                    </a>
+                </div>`;
+
+                return `<tr>
+                    <td>${item.nome}</td><td>${item.idade}</td><td>${celularComWhats}</td>
+                    <td>${item.discipulador}</td><td>${item.lider}</td><td>${item.tipoInscricao}</td>
+                    <td>${statusBadge}</td>
+                    <td>${metodoTraduzido}</td><td>${presencaBadge}</td><td>${dataFormatada}</td>
+                    <td>${isDuplicado ? '<span class="duplicado-badge">Sim</span>' : '-'}</td>
+                </tr>`;
+            }).join('');
+            renderizarResumoDados();
+        }
+
+        function atualizarDashboard() {
+            const metrics = calcularMetricas();
+            const totalMain = metrics.totalInscritos;
+            const taxaPagamento = metrics.totalInscritos > 0 ? Math.round((metrics.totalPagos / metrics.totalInscritos) * 100) : 0;
+            document.getElementById('totalMain').textContent = totalMain.toLocaleString('pt-BR');
+            document.getElementById('taxaPagBadge').textContent = taxaPagamento + '%';
+            document.getElementById('totalInscritos').textContent = metrics.totalInscritos.toLocaleString('pt-BR');
+            document.getElementById('totalServosHome').textContent = metrics.totalServos.toLocaleString('pt-BR');
+            document.getElementById('totalConvidadosHome').textContent = metrics.totalConvidados.toLocaleString('pt-BR');
+            document.getElementById('totalPagos').textContent = metrics.totalPagos.toLocaleString('pt-BR');
+            document.getElementById('totalRejeitados').textContent = metrics.totalRejeitados.toLocaleString('pt-BR');
+            document.getElementById('totalDuplicados').textContent = metrics.totalDuplicados.toLocaleString('pt-BR');
+            document.getElementById('totalPendentes').textContent = metrics.totalPendentes.toLocaleString('pt-BR');
+            document.getElementById('totalServosPagos').textContent = metrics.totalServosPagos.toLocaleString('pt-BR');
+            document.getElementById('totalConvidadosPagos').textContent = metrics.totalConvidadosPagos.toLocaleString('pt-BR');
+            renderizarTabela(allData);
+        }
+
+        document.getElementById('searchCronograma').addEventListener('input', function(e) {
+            const termo = e.target.value.toLowerCase().trim();
+
+            if (!cronogramaData || cronogramaData.length === 0) {
+                renderizarCronogramaTabela([]);
+                return;
+            }
+
+            // Primeiro aplicar filtros do card, depois busca
+            let dadosBase = cronogramaData;
+            if (Object.keys(filtrosCronograma).length > 0) {
+                dadosBase = cronogramaData.filter(item => {
+                    for (let filtro of Object.keys(filtrosCronograma)) {
+                        const diaLower = String(item.dia || '').toLowerCase().trim();
+                        let passa = false;
+                        if (filtro === 'sabado' && (diaLower.includes('sabado') || diaLower.includes('sábado'))) passa = true;
+                        else if (filtro === 'domingo' && diaLower.includes('domingo')) passa = true;
+                        else if (filtro === 'todos') passa = true;
+                        if (!passa) return false;
+                    }
+                    return true;
+                });
+            }
+
+            // Depois aplicar busca
+            const filtrados = dadosBase.filter(item => {
+                // Converter para string para segurança
+                const nome = String(item.nome || '').toLowerCase();
+                const dia = String(item.dia || '').toLowerCase();
+                const inicio = String(item.inicio || '').toLowerCase();
+                const fim = String(item.fim || '').toLowerCase();
+
+                return nome.includes(termo) || dia.includes(termo) || inicio.includes(termo) || fim.includes(termo);
+            });
+
+            renderizarCronogramaTabela(filtrados.length > 0 || !termo ? filtrados : []);
+        });
+
+        document.getElementById('searchInput').addEventListener('input', function() {
+            renderizarTabela(obterDadosFiltrados());
+        });
+
+        function gerarPDFConvidados() {
+            const convidados = allData.filter(item => {
+                const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
+                return tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest');
+            });
+
+            if (convidados.length === 0) {
+                alert('Nenhum convidado encontrado nos dados carregados.');
+                return;
+            }
+
+            const formatarData = (d) => {
+                if (!d) return '';
+                try {
+                    const dt = new Date(d);
+                    if (!isNaN(dt.getTime())) {
+                        const dia = String(dt.getDate()).padStart(2, '0');
+                        const mes = String(dt.getMonth() + 1).padStart(2, '0');
+                        const h = String(dt.getHours()).padStart(2, '0');
+                        const m = String(dt.getMinutes()).padStart(2, '0');
+                        return `${dia}/${mes} ${h}:${m}`;
+                    }
+                } catch(e) {}
+                return d;
+            };
+
+            const mapStatus = (s) => {
+                const sl = String(s || '').toLowerCase().trim();
+                if (sl === 'paid' || sl === 'approved' || sl === 'confirmado' || sl === 'confirm') return { label: 'Aprovado', cls: 'badge-paid' };
+                if (sl === 'rejected' || sl === 'rejeitado' || sl === 'denied') return { label: 'Rejeitado', cls: 'badge-rejected' };
+                return { label: 'Processando', cls: 'badge-pending' };
+            };
+
+            const win = window.open('', '_blank', 'width=1200,height=800');
+            win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Convidados</title>
+    <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10px; color: #2c2c2c; }
+        h1 { text-align: center; font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #6b46c1; }
+        .subtitle { text-align: center; font-size: 10px; color: #666; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #6b46c1; color: white; }
+        th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+        td { padding: 5px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
+        tbody tr:nth-child(even) { background: #fafafa; }
+        .num { color: #999; font-size: 9px; }
+        .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+        .badge-paid { background: #10b981; color: white; }
+        .badge-pending { background: #3b82f6; color: white; }
+        .badge-rejected { background: #ef4444; color: white; }
+        .badge-sim { background: #10b981; color: white; }
+        .badge-nao { background: #ef4444; color: white; }
+        .footer { margin-top: 12px; text-align: right; font-size: 9px; color: #999; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style>
+</head>
+<body>
+    <h1>Lista de Convidados — Encontro</h1>
+    <div class="subtitle">Total: ${convidados.length} convidados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
+                <th>Discipulador</th><th>L&iacute;der</th><th>Status Pagamento</th>
+                <th>M&eacute;todo</th><th>Presente</th><th>Inscrito Em</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${convidados.map((item, idx) => {
+                const st = mapStatus(item.statusPagamento);
+                const presOk = isPresente(item.presenca);
+                return '<tr>' +
+                    '<td class="num">' + (idx + 1) + '</td>' +
+                    '<td><strong>' + (item.nome || '') + '</strong></td>' +
+                    '<td>' + (item.idade || '') + '</td>' +
+                    '<td>' + (item.celular || '') + '</td>' +
+                    '<td>' + (item.discipulador || '') + '</td>' +
+                    '<td>' + (item.lider || '') + '</td>' +
+                    '<td><span class="badge ' + st.cls + '">' + st.label + '</span></td>' +
+                    '<td>' + (item.formaPagamento || '') + '</td>' +
+                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
+                    '<td>' + formatarData(item.dataInscricao) + '</td>' +
+                    '</tr>';
+            }).join('')}
+        </tbody>
+    </table>
+    <div class="footer">Painel ADM &mdash; Encontro</div>
+    <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+</body>
+</html>`);
+            win.document.close();
+        }
+
+        document.getElementById('navPdfConvidados').addEventListener('click', function() {
+            if (!allData || allData.length === 0) {
+                alert('Nenhum dado carregado. Aguarde o upload do arquivo de inscritos.');
+                return;
+            }
+            gerarPDFConvidados();
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.add('collapsed');
+            }
+        });
+
+        // Toggle do menu
+        document.getElementById('menuToggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        });
+
+        // Botão de fechar do sidebar (mobile)
+        document.getElementById('sidebarClose').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.add('collapsed');
+        });
+
+        // Navegação
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const pageName = this.dataset.page;
+                abaAtiva = pageName; // Registrar aba ativa
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.page-section').forEach(page => page.classList.remove('active'));
+                document.getElementById(pageName).classList.add('active');
+                const titulos = {'resumo':'Relatório de Inscritos','discipulado':'Análise por Discipulado','rede':'Análise por Rede','dados':'Dados Completos','cronograma':'Cronograma do Encontro','sorteio':'Sorteio'};
+                document.getElementById('pageTitle').textContent = titulos[pageName] || 'Dashboard';
+
+                // Atualizar timestamp baseado na aba
+                if (pageName === 'cronograma') {
+                    atualizarTimestampCronograma();
+                } else {
+                    atualizarTimestamp();
+                }
+
+                // Fechar sidebar em mobile após navegação
+                if (window.innerWidth <= 768) {
+                    document.getElementById('sidebar').classList.add('collapsed');
+                }
+            });
+        });
+
+        function atualizarTimestamp() {
+            if (abaAtiva === 'cronograma') return;
+            if (fileModificationTime) {
+                const agora = new Date();
+                const diffMs = agora - fileModificationTime;
+                const diffMinutos = Math.floor(diffMs / 60000);
+                let timeString;
+                if (diffMinutos === 0) timeString = 'Atualizado agora';
+                else if (diffMinutos === 1) timeString = 'Atualizado há 1 minuto';
+                else if (diffMinutos < 60) timeString = `Atualizado há ${diffMinutos} minutos`;
+                else { const h = Math.floor(diffMinutos / 60); timeString = h === 1 ? 'Atualizado há 1 hora' : `Atualizado há ${h} horas`; }
+                _aplicarStatusDot(diffMinutos, timeString);
+            } else {
+                _aplicarStatusDot(null, 'Aguardando dados...');
+            }
+        }
+
+        // ===== SORTEIO =====
+        const sorteio = {
+            rodando: false,
+            intervaloId: null,
+            ganhadores: [],
+            elegiveisBase: [],
+            candidatoAtual: null,
+            fase: 0,
+            timeouts: []
+        };
+
+        function obterElegiveis() {
+            const apenasPresentes = document.getElementById('sorteioApenasPresentes').checked;
+            const ganhadoresNomes = new Set(sorteio.ganhadores.map(g => g.nome.toLowerCase().trim()));
+            return allData.filter(item => {
+                if (ganhadoresNomes.has((item.nome || '').toLowerCase().trim())) return false;
+                if (apenasPresentes && !isPresente(item.presenca)) return false;
+                return item.nome && item.nome.trim();
+            });
+        }
+
+        function ciclarNome(lista) {
+            const idx = Math.floor(Math.random() * lista.length);
+            const p = lista[idx];
+            document.getElementById('sorteioNome').textContent = p.nome || '—';
+            document.getElementById('sorteioDisc').textContent = p.discipulador ? `Discipulado de ${p.discipulador}` : '';
+            sorteio.candidatoAtual = p;
+        }
+
+        function pararIntervalo() {
+            if (sorteio.intervaloId) { clearInterval(sorteio.intervaloId); sorteio.intervaloId = null; }
+        }
+
+        function pararCiclo() {
+            pararIntervalo();
+            sorteio.timeouts.forEach(t => clearTimeout(t));
+            sorteio.timeouts = [];
+        }
+
+        function revelarGanhador(lista) {
+            pararCiclo();
+            const idx = Math.floor(Math.random() * lista.length);
+            const ganhador = lista[idx];
+            sorteio.ganhadores.push(ganhador);
+            sorteio.rodando = false;
+
+            const display = document.getElementById('sorteioDisplay');
+            const badge = document.getElementById('sorteioBadge');
+            display.classList.remove('animando');
+            display.classList.add('ganhador');
+            document.getElementById('sorteioNome').textContent = ganhador.nome || '—';
+            document.getElementById('sorteioDisc').textContent = ganhador.discipulador ? `Discipulado de ${ganhador.discipulador}` : '';
+            badge.style.display = '';
+            badge.textContent = `🏆 Prêmio ${sorteio.ganhadores.length}`;
+
+            atualizarGanhadoresList();
+            atualizarBotoesSorteio();
+            atualizarProgressoSorteio();
+        }
+
+        function iniciarSorteio() {
+            if (sorteio.rodando) return;
+            const elegíveis = obterElegiveis();
+            const qtd = parseInt(document.getElementById('sorteioQtdPremios').value) || 1;
+
+            if (elegíveis.length === 0) {
+                document.getElementById('sorteioNome').textContent = 'Nenhum participante disponível';
+                document.getElementById('sorteioDisc').textContent = 'Verifique os dados ou os filtros';
+                return;
+            }
+            if (sorteio.ganhadores.length >= qtd) {
+                document.getElementById('sorteioProgresso').textContent = 'Todos os prêmios já foram sorteados. Clique em Reiniciar.';
+                return;
+            }
+
+            sorteio.rodando = true;
+            const display = document.getElementById('sorteioDisplay');
+            const badge = document.getElementById('sorteioBadge');
+            display.classList.remove('ganhador');
+            display.classList.add('animando');
+            badge.style.display = 'none';
+            atualizarBotoesSorteio();
+            atualizarProgressoSorteio();
+
+            // 0-3s rápido → 3-4.5s médio → 4.5-5.7s lento → 6s revela
+            sorteio.intervaloId = setInterval(() => ciclarNome(elegíveis), 70);
+
+            const t1 = setTimeout(() => {
+                pararIntervalo();
+                sorteio.intervaloId = setInterval(() => ciclarNome(elegíveis), 160);
+            }, 3000);
+
+            const t2 = setTimeout(() => {
+                pararIntervalo();
+                sorteio.intervaloId = setInterval(() => ciclarNome(elegíveis), 350);
+            }, 4500);
+
+            const t3 = setTimeout(() => {
+                revelarGanhador(elegíveis);
+            }, 6000);
+
+            sorteio.timeouts = [t1, t2, t3];
+        }
+
+        function reiniciarSorteio() {
+            pararCiclo();
+            sorteio.rodando = false;
+            sorteio.ganhadores = [];
+            const display = document.getElementById('sorteioDisplay');
+            display.classList.remove('animando', 'ganhador');
+            document.getElementById('sorteioNome').textContent = 'Pronto para sortear';
+            document.getElementById('sorteioDisc').textContent = 'Configure as opções e clique em Sortear';
+            document.getElementById('sorteioBadge').style.display = 'none';
+            document.getElementById('sorteioGanhadores').innerHTML = '';
+            atualizarBotoesSorteio();
+            atualizarProgressoSorteio();
+        }
+
+        function atualizarBotoesSorteio() {
+            const btn = document.getElementById('sortearBtn');
+            btn.disabled = sorteio.rodando;
+        }
+
+        function atualizarProgressoSorteio() {
+            const qtd = parseInt(document.getElementById('sorteioQtdPremios').value) || 1;
+            const ganhos = sorteio.ganhadores.length;
+            const el = document.getElementById('sorteioProgresso');
+            if (sorteio.rodando) {
+                el.textContent = `Sorteando prêmio ${ganhos + 1} de ${qtd}...`;
+            } else if (ganhos > 0 && ganhos < qtd) {
+                el.textContent = `${ganhos} de ${qtd} prêmios sorteados — clique em Sortear para continuar`;
+            } else if (ganhos >= qtd) {
+                el.textContent = `Todos os ${qtd} prêmios foram sorteados! 🎉`;
+            } else {
+                el.textContent = '';
+            }
+        }
+
+        function atualizarGanhadoresList() {
+            const container = document.getElementById('sorteioGanhadores');
+            if (sorteio.ganhadores.length === 0) { container.innerHTML = ''; return; }
+            const itens = sorteio.ganhadores.map((g, i) => `
+                <div class="sorteio-ganhador-item">
+                    <div class="sorteio-ganhador-num">${i + 1}</div>
+                    <div class="sorteio-ganhador-info">
+                        <div class="sorteio-ganhador-nome">${g.nome}</div>
+                        ${g.discipulador ? `<div class="sorteio-ganhador-disc">Discipulado de ${g.discipulador}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            container.innerHTML = `<div class="sorteio-ganhadores-titulo">🏆 Ganhadores</div>${itens}`;
+        }
+
+        function mostrarToast(msg, type) {
+            let toast = document.getElementById('toastNotify');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toastNotify';
+                toast.className = 'toast-notify';
+                document.body.appendChild(toast);
+            }
+            const icon = type === 'error' ? '✕' : '✔';
+            toast.innerHTML = '<span class="toast-check">' + icon + '</span>' + msg;
+            toast.classList.remove('show', 'error');
+            void toast.offsetWidth;
+            if (type === 'error') toast.classList.add('error');
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
+        }
+
+        document.getElementById('navMensagemInscricao').addEventListener('click', function() {
+            const msg = window.CONFIG && window.CONFIG.MENSAGEM_INSCRICAO;
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.add('collapsed');
+            }
+            if (!msg) {
+                mostrarToast('Mensagem não configurada', 'error');
+                return;
+            }
+            function copiarTexto() {
+                const el = document.createElement('textarea');
+                el.value = msg;
+                el.style.position = 'fixed';
+                el.style.opacity = '0';
+                document.body.appendChild(el);
+                el.focus();
+                el.select();
+                try { document.execCommand('copy'); } catch(e) {}
+                document.body.removeChild(el);
+                mostrarToast('Mensagem Copiada !');
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(msg)
+                    .then(() => mostrarToast('Mensagem Copiada !'))
+                    .catch(() => copiarTexto());
+            } else {
+                copiarTexto();
+            }
+        });
+
+        // Modal GREX
+        (function() {
+            // Status dot
+            const statusOverlay = document.getElementById('statusOverlay');
+            document.getElementById('statusDot').addEventListener('click', function() {
+                const dot = document.getElementById('statusModalDot');
+                dot.className = 'status-modal-dot ' + statusCor;
+                document.getElementById('statusModalDesc').textContent = statusDescricao;
+                statusOverlay.classList.add('show');
+            });
+            document.getElementById('statusModalClose').addEventListener('click', () => statusOverlay.classList.remove('show'));
+            statusOverlay.addEventListener('click', e => { if (e.target === statusOverlay) statusOverlay.classList.remove('show'); });
+        })();
+
+        (function() {
+            function _abrirUrl(url) {
+                if (!url) return;
+                if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+                window.open(url, '_blank');
+            }
+            function _ehUrlValida(str) {
+                if (!str) return false;
+                try { const u = new URL(/^https?:\/\//i.test(str) ? str : 'https://' + str); return u.hostname.includes('.'); } catch { return false; }
+            }
+            const overlay = document.getElementById('grexOverlay');
+            document.getElementById('grexBtn').addEventListener('click', () => overlay.classList.add('show'));
+            document.getElementById('grexModalClose').addEventListener('click', () => overlay.classList.remove('show'));
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('show'); });
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    ['grexOverlay','statusOverlay','qrOverlay','adminOverlay'].forEach(id => {
+                        const el = document.getElementById(id); if (el) el.classList.remove('show');
+                    });
+                }
+            });
+            document.getElementById('grexLinkEvento').addEventListener('click', function() {
+                const url = window.CONFIG && window.CONFIG.GREX_EVENTO_URL;
+                overlay.classList.remove('show');
+                _abrirUrl(url);
+            });
+            document.getElementById('grexLinkAdmin').addEventListener('click', function() {
+                const url = window.CONFIG && window.CONFIG.GREX_PARTICIPANTS_URL;
+                overlay.classList.remove('show');
+                _abrirUrl(url);
+            });
+            const adminOverlay = document.getElementById('adminOverlay');
+            document.getElementById('grexLinkAutomacao').addEventListener('click', function() {
+                const val = window.CONFIG && window.CONFIG.GREX_AUTOMACAO_CHECKING;
+                overlay.classList.remove('show');
+                if (_ehUrlValida(val)) { _abrirUrl(val); }
+                else { adminOverlay.classList.add('show'); }
+            });
+            document.getElementById('adminModalClose').addEventListener('click', () => adminOverlay.classList.remove('show'));
+            adminOverlay.addEventListener('click', e => { if (e.target === adminOverlay) adminOverlay.classList.remove('show'); });
+            const qrOverlay = document.getElementById('qrOverlay');
+            document.getElementById('grexLinkQrcode').addEventListener('click', function() {
+                const url = window.CONFIG && window.CONFIG.GREX_EVENTO_URL;
+                overlay.classList.remove('show');
+                if (!url) { mostrarToast('URL de inscrição não configurada', 'error'); return; }
+                const normalUrl = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                document.getElementById('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=10&data=' + encodeURIComponent(normalUrl);
+                document.getElementById('qrUrlText').textContent = normalUrl;
+                qrOverlay.classList.add('show');
+            });
+            document.getElementById('qrModalClose').addEventListener('click', () => qrOverlay.classList.remove('show'));
+            qrOverlay.addEventListener('click', e => { if (e.target === qrOverlay) qrOverlay.classList.remove('show'); });
+        })();
+
+        // Navegação a partir dos cards da home
+        document.querySelectorAll('.stats-grid .stat-card[data-filtro]').forEach(card => {
+            card.addEventListener('click', function() {
+                const filtro = this.dataset.filtro;
+                filtrosAtivos = {};
+                if (filtro) filtrosAtivos[filtro] = true;
+                const dadosNav = document.querySelector('.nav-item[data-page="dados"]');
+                if (dadosNav) dadosNav.click();
+                renderizarResumoDados();
+                aplicarFiltros();
+            });
+        });
+
+        // Carregar dados do Excel e inicializar dashboard
+        async function inicializar() {
+            await carregarPagarDepois();
+            const carregouExcel = await carregarDadosExcel();
+            const carregouCronograma = await carregarCronograma();
+
+            if (!carregouExcel) {
+                console.log('Encontro: usando dados padrão');
+            }
+            if (!carregouCronograma) {
+                console.log('Cronograma: aguardando arquivo');
+            }
+
+            filtrosCronograma = {}; // Resetar filtros
+            atualizarDashboard();
+            renderizarDiscipulado();
+            renderizarRede();
+            renderizarResumoDados();
+            renderizarCronogramaResumo();
+            renderizarCronogramaTabela(cronogramaData);
+            atualizarTimestamp();
+            atualizarTimestampCronograma();
+            setInterval(atualizarTimestamp, 1000);
+            setInterval(atualizarTimestampCronograma, 1000);
+        }
+    </script>
+</body>
+</html>

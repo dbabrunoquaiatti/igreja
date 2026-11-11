@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  webscraping-grex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: webscraping-grex
+
+    # Portas
+    ports:
+      - "8080:8080"
+
+    # Variáveis de ambiente - Customize aqui!
+    environment:
+      PYTHONUNBUFFERED: 1
+
+    # Volume para dados
+    volumes:
+      - ./data:/app/data
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/index.html"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Política de reinicialização
+    restart: unless-stopped
+
+    # Limites de recursos (opcional)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1'
+    #       memory: 1G
+    #     reservations:
+    #       cpus: '0.5'
+    #       memory: 512M
+
+# Versão alternativa com Selenium Grid (mais robusta)
+# Descomente para usar com Selenium Grid
+#
+# version: '3.8'
+#
+# services:
+#   selenium-hub:
+#     image: selenium/hub:4.15.0
+#     container_name: selenium-hub
+#     ports:
+#       - "4444:4444"
+#
+#   chrome:
+#     image: selenium/node-chrome:4.15.0
+#     container_name: selenium-chrome
+#     depends_on:
+#       - selenium-hub
+#     environment:
+#       SE_EVENT_BUS_HOST: selenium-hub
+#       SE_EVENT_BUS_PUBLISH_PORT: 4442
+#       SE_EVENT_BUS_SUBSCRIBE_PORT: 4443
+#       SE_NODE_MAX_SESSIONS: 1
+#       SE_NODE_SESSION_TIMEOUT: 300
+#
+#   webscraping-grex:
+#     build: .
+#     container_name: webscraping-grex
+#     depends_on:
+#       - chrome
+#     environment:
+#       GREX_EMAIL: ${GREX_EMAIL:-quaiattibruno@gmail.com}
+#       GREX_PASSWORD: ${GREX_PASSWORD:-Temp#2032435@}
+#       SELENIUM_GRID_URL: http://selenium-hub:4444
+#     volumes:
+#       - ./data:/app/data
+#     restart: no
