@@ -56,10 +56,14 @@ def setup_driver():
     prefs["enable-features"] = "NetworkService,NetworkServiceInProcess"
     prefs["disable-component-update"] = True
 
-    # Essencial para rodar em Docker
+    # Essencial para rodar em Docker (especialmente como não-root)
     chrome_options.add_argument("--headless=new")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-setuid-sandbox")
+    chrome_options.add_argument("--no-zygote")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--user-data-dir=/tmp/chrome-data")
     chrome_options.add_argument("--disable-web-resources")
     chrome_options.add_argument("--no-first-run")
 
