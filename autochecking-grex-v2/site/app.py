@@ -7,6 +7,15 @@ app = Flask(__name__)
 
 GREX_BASE = "https://portal.grex.com.br"
 
+FIREBASE_HOSTS = [
+    'firebaseinstallations.googleapis.com',
+    'identitytoolkit.googleapis.com',
+    'securetoken.googleapis.com',
+    'firebaselogging-pa.googleapis.com',
+    'firebaseremoteconfig.googleapis.com',
+    'firebase.googleapis.com',
+]
+
 
 def _ler_credenciais():
     email = os.environ.get('GREX_EMAIL', '').strip()
@@ -30,6 +39,42 @@ def _ler_credenciais():
 
 
 GREX_EMAIL, GREX_SENHA = _ler_credenciais()
+
+# ── Patch fetch/XHR: intercepta chamadas Firebase e as redireciona pelo proxy ──
+# Deve ser injetado o mais cedo possível (no <head>), antes do Firebase SDK iniciar.
+SCRIPT_FIREBASE_PROXY = r"""
+(function () {
+  if (window.__grexFirebaseProxy) return;
+  window.__grexFirebaseProxy = true;
+  const HOSTS = """ + str(FIREBASE_HOSTS) + r""";
+  const BASE = window.location.origin + '/grex-firebase/';
+
+  const _fetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    let url = (input instanceof Request) ? input.url : String(input);
+    for (const h of HOSTS) {
+      if (url.startsWith('https://' + h)) {
+        const newUrl = BASE + h + url.slice(('https://' + h).length);
+        input = (input instanceof Request) ? new Request(newUrl, input) : newUrl;
+        break;
+      }
+    }
+    return _fetch(input, init);
+  };
+
+  const _open = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    let u = String(url);
+    for (const h of HOSTS) {
+      if (u.startsWith('https://' + h)) {
+        u = BASE + h + u.slice(('https://' + h).length);
+        break;
+      }
+    }
+    return _open.apply(this, [method, u, ...Array.prototype.slice.call(arguments, 2)]);
+  };
+})();
+"""
 
 SCRIPT_CSS = r"""
 (function () {
@@ -229,8 +274,6 @@ SCRIPT_SONS = r"""
 })();
 """
 
-# Auto-login script: fills credentials and submits the login form automatically.
-# Uses the native value setter so Angular's reactive forms detect the change.
 SCRIPT_AUTOLOGIN = """
 (function () {{
   if (window.__grexAutoLogin) return;
@@ -270,7 +313,8 @@ SCRIPT_AUTOLOGIN = """
     senha=repr(GREX_SENHA),
 )
 
-INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
+BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
+HEAD_INJECTION = f"<script>{SCRIPT_FIREBASE_PROXY}</script>"
 
 HOP_BY_HOP = {
     'host', 'content-length', 'transfer-encoding', 'connection',
@@ -291,12 +335,61 @@ def proxy_base():
 def inject_and_rewrite(html_bytes):
     html = html_bytes.decode('utf-8', errors='replace')
     html = html.replace(GREX_BASE, proxy_base())
-    pos = html.rfind('</body>')
-    if pos != -1:
-        html = html[:pos] + INJECTION + html[pos:]
+
+    # Firebase proxy patch vai no <head> para rodar antes do Firebase SDK
+    head_pos = html.find('<head>')
+    if head_pos != -1:
+        insert = head_pos + len('<head>')
+        html = html[:insert] + HEAD_INJECTION + html[insert:]
+
+    # Demais scripts vão no fim do <body>
+    body_pos = html.rfind('</body>')
+    if body_pos != -1:
+        html = html[:body_pos] + BODY_INJECTION + html[body_pos:]
     else:
-        html += INJECTION
+        html += BODY_INJECTION
+
     return html.encode('utf-8')
+
+
+def _build_upstream_headers():
+    headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
+    headers['Accept-Encoding'] = 'gzip, deflate'
+    proxy_origin = request.host_url.rstrip('/')
+    for hdr in ('referer', 'origin'):
+        if hdr in headers:
+            headers[hdr] = headers[hdr].replace(proxy_origin, GREX_BASE)
+    return headers
+
+
+@app.route('/grex-firebase/<host>/<path:path>',
+           methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
+def firebase_proxy(host, path):
+    """Encaminha chamadas Firebase com Origin correto para evitar bloqueio de domínio."""
+    url = f"https://{host}/{path}"
+    if request.query_string:
+        url += '?' + request.query_string.decode('utf-8', errors='replace')
+
+    headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
+    headers['Accept-Encoding'] = 'gzip, deflate'
+    headers['Origin'] = GREX_BASE
+    headers['Referer'] = GREX_BASE + '/'
+
+    try:
+        resp = requests.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            data=request.get_data(),
+            allow_redirects=False,
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        return Response(f"Erro Firebase proxy: {e}", status=502)
+
+    resp_headers = [(k, v) for k, v in resp.headers.items()
+                    if k.lower() not in STRIP_RESPONSE]
+    return Response(resp.content, resp.status_code, resp_headers)
 
 
 @app.route('/', defaults={'path': ''})
@@ -306,21 +399,11 @@ def proxy(path):
     if request.query_string:
         url += '?' + request.query_string.decode('utf-8', errors='replace')
 
-    headers = {k: v for k, v in request.headers if k.lower() not in HOP_BY_HOP}
-    headers['Accept-Encoding'] = 'gzip, deflate'  # evita brotli que requests não descomprime
-
-    # Firebase bloqueia requisições cujo Referer/Origin não está na lista de domínios autorizados.
-    # Substituímos o domínio do proxy pelo domínio real antes de encaminhar.
-    proxy_origin = request.host_url.rstrip('/')
-    for hdr in ('referer', 'origin'):
-        if hdr in headers:
-            headers[hdr] = headers[hdr].replace(proxy_origin, GREX_BASE)
-
     try:
         resp = requests.request(
             method=request.method,
             url=url,
-            headers=headers,
+            headers=_build_upstream_headers(),
             data=request.get_data(),
             cookies=request.cookies,
             allow_redirects=False,
