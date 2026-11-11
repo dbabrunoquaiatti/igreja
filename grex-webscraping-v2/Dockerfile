@@ -24,6 +24,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 
+# Fix Chromium 156 (Debian trixie): crashpad handler é spawned sem --database → Chrome sai.
+# Wrapper que injeta --database=/tmp/crashpad-db quando o argumento está faltando.
+RUN set -e; \
+    REAL=""; \
+    for p in /usr/lib/chromium/chrome_crashpad_handler /usr/lib/chromium-browser/chrome_crashpad_handler; do \
+        [ -f "$p" ] && REAL="$p" && break; \
+    done; \
+    if [ -z "$REAL" ] && [ -f /usr/bin/chrome_crashpad_handler ]; then \
+        REAL=/usr/bin/chrome_crashpad_handler; \
+    fi; \
+    if [ -n "$REAL" ]; then \
+        cp "$REAL" "${REAL}.real"; \
+        printf '#!/bin/sh\nmkdir -p /tmp/crashpad-db\nfor a in "$@"; do\n  case "$a" in --database=*) exec %s "$@";; esac\ndone\nexec %s --database=/tmp/crashpad-db "$@"\n' "${REAL}.real" "${REAL}.real" > "$REAL"; \
+        chmod +x "$REAL"; \
+        [ -f /usr/bin/chrome_crashpad_handler ] && cp "$REAL" /usr/bin/chrome_crashpad_handler || true; \
+    fi
+
 # Definir diretório de trabalho
 WORKDIR /app
 
