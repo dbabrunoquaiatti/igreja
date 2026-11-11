@@ -289,6 +289,18 @@ SCRIPT_AUTOLOGIN = """
     el.dispatchEvent(new Event('change', {{bubbles: true}}));
   }}
 
+  function fecharBriefing() {{
+    document.querySelectorAll('.greg-briefing__close > mat-icon:nth-child(1)').forEach(el => {{
+      if (el.offsetParent !== null) el.click();
+    }});
+  }}
+
+  function irParaCheckin() {{
+    if (!window.location.pathname.includes('/eventos/check-in')) {{
+      window.location.href = '/eventos/check-in';
+    }}
+  }}
+
   function tentarLogin() {{
     const campoEmail = document.querySelector('#login-email-desktop');
     const campoSenha = document.querySelector('#login-password-desktop');
@@ -298,8 +310,29 @@ SCRIPT_AUTOLOGIN = """
     const btn = [...document.querySelectorAll('button')].find(b =>
       b.textContent.trim().toLowerCase().includes('entrar')
     );
-    if (btn) setTimeout(() => btn.click(), 400);
+    if (btn) {{
+      setTimeout(() => {{
+        btn.click();
+        // Aguarda o formulário sumir (login completo) e navega para check-in
+        const t = setInterval(() => {{
+          if (!document.querySelector('#login-email-desktop')) {{
+            clearInterval(t);
+            setTimeout(irParaCheckin, 1200);
+          }}
+        }}, 400);
+        setTimeout(() => clearInterval(t), 20000);
+      }}, 400);
+    }}
     return true;
+  }}
+
+  // Fecha o painel de briefing assim que aparecer
+  new MutationObserver(fecharBriefing).observe(document.body, {{childList: true, subtree: true}});
+
+  // Se já estiver na página de check-in (sessão ativa), só fecha o briefing
+  if (window.location.pathname.includes('/eventos/check-in')) {{
+    fecharBriefing();
+    return;
   }}
 
   if (!tentarLogin()) {{
