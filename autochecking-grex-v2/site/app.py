@@ -313,85 +313,57 @@ SCRIPT_AUTOLOGIN = """
     el.dispatchEvent(new Event('change', {{bubbles: true}}));
   }}
 
-  function fecharBriefing() {{
-    document.querySelectorAll('.greg-briefing__close > mat-icon:nth-child(1)').forEach(el => {{
-      if (el.offsetParent !== null) el.click();
-    }});
-  }}
-
   function irParaCheckin() {{
-    if (!window.location.pathname.includes('/eventos/check-in')) {{
-      window.location.href = '/eventos/check-in';
-    }}
+    if (!location.pathname.includes('/eventos/check-in'))
+      location.href = '/eventos/check-in';
   }}
 
-  // Fecha briefing sempre que aparecer no DOM
-  new MutationObserver(fecharBriefing).observe(document.body, {{childList: true, subtree: true}});
+  // Já está na página certa: encerra
+  if (location.pathname.includes('/eventos/check-in')) return;
 
-  // Já está na página certa: apenas fecha briefing e encerra
-  if (window.location.pathname.includes('/eventos/check-in')) {{
-    fecharBriefing();
-    return;
-  }}
+  let loginSubmetido = false;
+  let navegacaoPendente = false;
 
-  // Aguarda briefing aparecer → fecha → 3s → navega.
-  // Fallback: se não aparecer em 12s, navega de qualquer forma.
-  function aguardarBriefingENavegar() {{
-    let navegou = false;
-    function navegar() {{
-      if (navegou) return;
-      navegou = true;
+  // Sempre que o briefing aparecer: fecha e agenda navegação
+  new MutationObserver(() => {{
+    const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
+    if (btn && btn.offsetParent !== null && !navegacaoPendente) {{
+      navegacaoPendente = true;
+      btn.click();
       setTimeout(irParaCheckin, 3000);
     }}
-    const obs = new MutationObserver(() => {{
-      const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
-      if (btn && btn.offsetParent !== null) {{ obs.disconnect(); btn.click(); navegar(); }}
-    }});
-    obs.observe(document.body, {{childList: true, subtree: true}});
-    setTimeout(() => {{ obs.disconnect(); navegar(); }}, 12000);
-  }}
+  }}).observe(document.body, {{childList: true, subtree: true}});
 
-  // Tenta preencher e submeter o formulário de login.
-  // Retorna true se o formulário foi encontrado e submetido.
-  // onSucesso é chamado após o clique (para iniciar aguardarBriefingENavegar).
-  function executarLogin(onSucesso) {{
+  // Polling a cada 1,5s: tenta login sempre que o formulário estiver visível
+  // e nenhum submit estiver pendente.
+  const poll = setInterval(() => {{
+    if (location.pathname.includes('/eventos/check-in')) {{ clearInterval(poll); return; }}
+    if (loginSubmetido || navegacaoPendente) return;
+
     const campoEmail = document.querySelector('#login-email-desktop');
     const campoSenha = document.querySelector('#login-password-desktop');
-    if (!campoEmail || !campoSenha) return false;
-    if (EMAIL && SENHA) {{
-      setVal(campoEmail, EMAIL);
-      setVal(campoSenha, SENHA);
-    }}
-    const btn = [...document.querySelectorAll('button')].find(b =>
+    if (!campoEmail || !campoSenha) return;
+
+    setVal(campoEmail, EMAIL);
+    setVal(campoSenha, SENHA);
+    const btnEntrar = [...document.querySelectorAll('button')].find(b =>
       b.textContent.trim().toLowerCase().includes('entrar')
     );
-    if (btn) setTimeout(() => {{ btn.click(); if (onSucesso) onSucesso(); }}, 400);
-    return true;
-  }}
+    if (!btnEntrar) return;
 
-  // Ciclo de login com retry a cada 6s caso ainda esteja na página de login.
-  function cicloLogin() {{
-    function tentativa() {{
-      if (window.location.pathname.includes('/eventos/check-in')) return;
-      if (!executarLogin(aguardarBriefingENavegar)) {{
-        // Formulário ainda não apareceu: aguarda no DOM
-        const obs = new MutationObserver(() => {{
-          if (executarLogin(aguardarBriefingENavegar)) obs.disconnect();
-        }});
-        obs.observe(document.body, {{childList: true, subtree: true}});
-        // Se formulário nunca aparecer (sessão ativa), navega direto após 3s
-        setTimeout(() => {{ obs.disconnect(); irParaCheckin(); }}, 3000);
-        return;
-      }}
-      // Formulário foi encontrado e clicado; se após 6s ainda aqui, tenta de novo
-      setTimeout(() => {{
-        if (!window.location.pathname.includes('/eventos/check-in')) tentativa();
-      }}, 6000);
+    loginSubmetido = true;
+    setTimeout(() => btnEntrar.click(), 300);
+    // Após 6s sem navegar: considera falha e libera nova tentativa
+    setTimeout(() => {{ loginSubmetido = false; }}, 6000);
+  }}, 1500);
+
+  // Se após 20s nada aconteceu (sessão ativa sem formulário), navega direto
+  setTimeout(() => {{
+    if (!location.pathname.includes('/eventos/check-in') && !navegacaoPendente) {{
+      clearInterval(poll);
+      irParaCheckin();
     }}
-    tentativa();
-  }}
-
-  cicloLogin();
+  }}, 20000);
 }})();
 """.format(
     email=repr(GREX_EMAIL),
@@ -399,7 +371,21 @@ SCRIPT_AUTOLOGIN = """
 )
 
 BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
-HEAD_INJECTION = f"<script>{SCRIPT_FIREBASE_PROXY}</script>"
+_LOADING_COVER_CSS = (
+    "<style id='grex-cover'>"
+    # Fora da página de check-in: esconde o conteúdo da app enquanto carrega
+    "body:not(.grex-pronto)>app-root{opacity:0!important;pointer-events:none!important}"
+    "body:not(.grex-pronto){background:#0f172a!important}"
+    "</style>"
+    "<script>"
+    "if(location.pathname.includes('/eventos/check-in')){"
+    "document.write('<style>body{background:initial!important}</style>');"
+    "document.addEventListener('DOMContentLoaded',function(){"
+    "document.body.classList.add('grex-pronto');});"
+    "}"
+    "</script>"
+)
+HEAD_INJECTION = f"{_LOADING_COVER_CSS}<script>{SCRIPT_FIREBASE_PROXY}</script>"
 
 HOP_BY_HOP = {
     'host', 'content-length', 'transfer-encoding', 'connection',
