@@ -25,15 +25,49 @@ CHROME_PROFILE_DIR = "/tmp/chrome-profile"
 CHROMEDRIVER_LOG = "/tmp/chromedriver.log"
 
 
+def _diagnosticar_chromium():
+    """Verifica se o binário do Chromium existe e consegue rodar headless"""
+    # 1. Verificar existência
+    for path in [CHROME_BIN, "/usr/bin/chromium-browser", "/usr/bin/google-chrome-stable"]:
+        if os.path.exists(path):
+            print(f"🔍 Binário encontrado: {path}")
+            break
+    else:
+        print(f"❌ CHROMIUM NÃO ENCONTRADO em nenhum caminho padrão")
+
+    # 2. Versão
+    try:
+        v = subprocess.run([CHROME_BIN, "--version"], capture_output=True, text=True, timeout=10)
+        print(f"🔍 Versão: {(v.stdout or v.stderr).strip()}")
+    except FileNotFoundError:
+        print(f"❌ {CHROME_BIN} não encontrado (FileNotFoundError)")
+    except Exception as e:
+        print(f"⚠️ Erro ao obter versão: {e}")
+
+    # 3. Teste headless direto (fora do Selenium)
+    print("🧪 Testando Chromium headless diretamente...")
+    try:
+        shutil.rmtree(CHROME_PROFILE_DIR, ignore_errors=True)
+        os.makedirs(CHROME_PROFILE_DIR, exist_ok=True)
+        test = subprocess.run(
+            [CHROME_BIN, "--headless=new", "--no-sandbox", "--disable-gpu",
+             "--disable-dev-shm-usage", f"--user-data-dir={CHROME_PROFILE_DIR}",
+             "--dump-dom", "about:blank"],
+            capture_output=True, text=True, timeout=20
+        )
+        if test.returncode == 0:
+            print("✅ Chromium headless OK")
+        else:
+            print(f"❌ Chromium saiu com código {test.returncode}")
+            if test.stderr:
+                print(f"   stderr:\n{test.stderr[:1500]}")
+    except Exception as e:
+        print(f"❌ Falha no teste Chromium: {e}")
+
+
 def setup_driver():
     """Configura o driver do Chrome com opções de download"""
-    # Diagnóstico: versão do Chromium
-    try:
-        result = subprocess.run([CHROME_BIN, "--version"],
-                                capture_output=True, text=True, timeout=10)
-        print(f"🔍 {(result.stdout or result.stderr).strip()}")
-    except Exception as e:
-        print(f"⚠️ Não foi possível verificar Chromium ({CHROME_BIN}): {e}")
+    _diagnosticar_chromium()
 
     # Criar pasta data se não existir
     data_folder = Path("data")
@@ -417,7 +451,7 @@ def baixar_fonte(driver, url, target_name, max_retries=3):
 def main():
     """Função principal"""
     print("=" * 60)
-    print("🚀 INICIANDO AUTOMAÇÃO GREX")
+    print("🚀 INICIANDO AUTOMAÇÃO GREX [build: diag-v1]")
     print("=" * 60)
 
     email = os.getenv("GREX_EMAIL")
