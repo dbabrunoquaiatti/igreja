@@ -58,10 +58,6 @@ PANEL_USER  = os.environ.get('PANEL_USER', 'admin')
 PANEL_PASS  = os.environ.get('PANEL_PASSWORD', '')
 PANEL_TOKEN = os.environ.get('PANEL_TOKEN', '')
 
-if not PANEL_PASS and not PANEL_TOKEN:
-    PANEL_TOKEN = secrets.token_urlsafe(32)
-    print('[AVISO] Nenhuma autenticação configurada. Configure PANEL_TOKEN ou PANEL_PASSWORD nas variáveis de ambiente.', file=sys.stderr)
-    sys.stderr.flush()
 
 class AuthNoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):

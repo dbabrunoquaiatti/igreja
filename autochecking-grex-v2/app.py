@@ -501,6 +501,16 @@ def firebase_proxy(host, path):
     return Response(resp.content, resp.status_code, resp_headers)
 
 
+@app.route('/grex-autologin-creds')
+def autologin_creds():
+    resp = Response(
+        json.dumps({'email': GREX_EMAIL, 'senha': GREX_SENHA}),
+        content_type='application/json',
+    )
+    resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
 def proxy(path):
