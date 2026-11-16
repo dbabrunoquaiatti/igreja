@@ -727,8 +727,8 @@
             gap: 6px;
         }
         .dados-resumo-toggle:hover { background: var(--lighter-gray); color: var(--purple-primary); border-color: var(--purple-light); }
-        .dados-resumo.oculto { display: none; }
-        .dados-resumo-header.oculto + .dados-resumo { display: none; }
+        .dados-resumo.oculto { display: none !important; }
+        .dados-resumo-header.oculto + .dados-resumo { display: none !important; }
         /* Busca 35% menor só na aba dados (PC e mobile) */
         #dados .table-header { padding: 14px 16px; }
         #dados .search-box { padding: 7px 10px; gap: 8px; }
@@ -1522,7 +1522,7 @@
                 <div id="dados" class="page-section">
                     <div class="dados-resumo-header">
                         <span class="dados-resumo-title">Filtros rápidos</span>
-                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Ocultar Cards">📊 Ocultar Cards</button>
+                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Ocultar Cards">Ocultar Cards</button>
                     </div>
                     <div class="dados-resumo" id="dadosResumo"></div>
                     <div class="table-container">
@@ -3345,7 +3345,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         // Toggle para ocultar/mostrar filtros rápidos na aba dados
         document.getElementById('dadosResumoToggle').addEventListener('click', function() {
             const isOculto = document.getElementById('dadosResumo').classList.toggle('oculto');
-            this.textContent = isOculto ? '📊 Mostrar Cards' : '📊 Ocultar Cards';
+            this.textContent = isOculto ? 'Mostrar Cards' : 'Ocultar Cards';
             this.title = isOculto ? 'Mostrar Cards' : 'Ocultar Cards';
         });
 
