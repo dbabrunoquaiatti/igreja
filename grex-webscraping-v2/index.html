@@ -1291,15 +1291,30 @@
             .nav-item          { font-size: 12px; padding: 13px 20px; }
             .nav-item-action   { font-size: 10px; padding: 11px 20px; }
             .nav-subitem       { font-size: 12px; padding: 10px 20px 10px 42px; }
-            .nav-arrow         { font-size: 9px; }
-            .stat-label        { font-size: 10px; }
-            .stat-number       { font-size: 27px; }
-            .stat-description  { font-size: 10px; }
-            .stat-mini-number  { font-size: 17px; }
+            .nav-arrow         { font-size: 14px; }
+
+            /* Resumo: stats compactos pra caber sem scroll */
+            .stats-grid        { gap: 10px; margin-bottom: 14px; }
+            .highlight-card    { padding: 14px 18px; }
+            .highlight-number  { font-size: 26px; }
+            .highlight-desc    { font-size: 9px; margin-top: 4px; }
+            .highlight-badge   { padding: 10px 12px; }
+            .badge-value       { font-size: 18px; margin-top: 2px; }
+            .badge-label       { font-size: 9px; }
+            .stat-card         { padding: 12px 14px; }
+            .stat-label        { font-size: 9px; margin-bottom: 6px; }
+            .stat-number       { font-size: 22px; margin-bottom: 4px; }
+            .stat-description  { font-size: 9px; }
+            .stat-mini-number  { font-size: 15px; }
+            .stat-mini-label   { font-size: 9px; }
             .highlight-label   { font-size: 9px; }
-            .highlight-number  { font-size: 34px; }
-            .highlight-desc    { font-size: 10px; }
-            .badge-value       { font-size: 24px; }
+
+            /* Filtros rápidos: sempre uma linha */
+            #dadosResumo                  { display: flex; flex-wrap: nowrap; gap: 7px; margin-bottom: 14px; }
+            #dadosResumo .resumo-card     { flex: 1 1 0; min-width: 0; padding: 7px 4px; }
+            #dadosResumo .resumo-label    { font-size: 7px; margin-bottom: 2px; letter-spacing: 0; }
+            #dadosResumo .resumo-numero   { font-size: 15px; }
+
             .discipulado-title { font-size: 15px; }
             .metric-label      { font-size: 9px; }
             .metric-value      { font-size: 20px; }
@@ -1326,10 +1341,12 @@
             gap: 12px;
         }
         .nav-arrow {
-            font-size: 10px;
+            font-size: 16px;
+            font-weight: 300;
             color: var(--text-lighter);
             transition: transform 0.2s ease;
             flex-shrink: 0;
+            line-height: 1;
         }
         .nav-parent.open .nav-arrow { transform: rotate(90deg); }
         .nav-submenu {
@@ -1386,7 +1403,7 @@
                 <div class="nav-item" data-page="sorteio"><span class="nav-icon">🎉</span><span>Sorteio</span></div>
                 <div class="nav-item nav-parent" id="navReports">
                     <span class="nav-left"><span class="nav-icon">📊</span><span>Reports</span></span>
-                    <span class="nav-arrow">▶</span>
+                    <span class="nav-arrow">›</span>
                 </div>
                 <div class="nav-submenu" id="navReportsSubmenu">
                     <div class="nav-subitem" id="navSubPdfConvidados"><span class="nav-icon">📄</span><span>Lista Convidados</span></div>
@@ -1493,9 +1510,7 @@
                 <div id="dados" class="page-section">
                     <div class="dados-resumo-header">
                         <span class="dados-resumo-title">Filtros rápidos</span>
-                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Minimizar filtros">
-                            <span id="dadosResumoToggleIcon">▲</span> Minimizar
-                        </button>
+                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Ocultar filtros">Ocultar ∧</button>
                     </div>
                     <div class="dados-resumo" id="dadosResumo"></div>
                     <div class="table-container">
@@ -3367,14 +3382,11 @@
             qrOverlay.addEventListener('click', e => { if (e.target === qrOverlay) qrOverlay.classList.remove('show'); });
         })();
 
-        // Toggle para minimizar/expandir filtros rápidos na aba dados
+        // Toggle para ocultar/mostrar filtros rápidos na aba dados
         document.getElementById('dadosResumoToggle').addEventListener('click', function() {
-            const container = document.getElementById('dadosResumo');
-            const icon = document.getElementById('dadosResumoToggleIcon');
-            const isOculto = container.classList.toggle('oculto');
-            icon.textContent = isOculto ? '▼' : '▲';
-            this.innerHTML = `<span id="dadosResumoToggleIcon">${isOculto ? '▼' : '▲'}</span> ${isOculto ? 'Expandir' : 'Minimizar'}`;
-            this.title = isOculto ? 'Expandir filtros' : 'Minimizar filtros';
+            const isOculto = document.getElementById('dadosResumo').classList.toggle('oculto');
+            this.textContent = isOculto ? 'Mostrar ∨' : 'Ocultar ∧';
+            this.title = isOculto ? 'Mostrar filtros' : 'Ocultar filtros';
         });
 
         // Navegação a partir dos cards da home
