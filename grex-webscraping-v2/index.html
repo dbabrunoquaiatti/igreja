@@ -729,6 +729,18 @@
         .dados-resumo-toggle:hover { background: var(--lighter-gray); color: var(--purple-primary); border-color: var(--purple-light); }
         .dados-resumo.oculto { display: none; }
         .dados-resumo-header.oculto + .dados-resumo { display: none; }
+        /* Busca 35% menor só na aba dados (PC e mobile) */
+        #dados .table-header { padding: 14px 16px; }
+        #dados .search-box { padding: 7px 10px; gap: 8px; }
+        #dados .search-box input { font-size: 9px; }
+        #dados .search-icon { font-size: 12px; }
+        /* Linha extra na tabela quando cards ocultos (mobile) */
+        @media (max-width: 768px) {
+            #dados .dados-resumo.oculto ~ .table-container .table-wrapper { max-height: 445px; }
+        }
+        @media (min-width: 769px) {
+            #dados .dados-resumo.oculto ~ .table-container .table-wrapper { max-height: 650px; }
+        }
         .dados-resumo {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -1341,14 +1353,14 @@
             gap: 12px;
         }
         .nav-arrow {
-            font-size: 16px;
-            font-weight: 300;
+            font-size: 13px;
             color: var(--text-lighter);
             transition: transform 0.2s ease;
             flex-shrink: 0;
             line-height: 1;
+            display: inline-block;
         }
-        .nav-parent.open .nav-arrow { transform: rotate(90deg); }
+        .nav-parent.open .nav-arrow { transform: rotate(180deg); }
         .nav-submenu {
             max-height: 0;
             overflow: hidden;
@@ -1403,7 +1415,7 @@
                 <div class="nav-item" data-page="sorteio"><span class="nav-icon">🎉</span><span>Sorteio</span></div>
                 <div class="nav-item nav-parent" id="navReports">
                     <span class="nav-left"><span class="nav-icon">📊</span><span>Reports</span></span>
-                    <span class="nav-arrow">›</span>
+                    <span class="nav-arrow">▾</span>
                 </div>
                 <div class="nav-submenu" id="navReportsSubmenu">
                     <div class="nav-subitem" id="navSubPdfConvidados"><span class="nav-icon">📄</span><span>Lista Convidados</span></div>
@@ -1510,7 +1522,7 @@
                 <div id="dados" class="page-section">
                     <div class="dados-resumo-header">
                         <span class="dados-resumo-title">Filtros rápidos</span>
-                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Ocultar filtros">Ocultar ∧</button>
+                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Ocultar Cards">📊 Ocultar Cards</button>
                     </div>
                     <div class="dados-resumo" id="dadosResumo"></div>
                     <div class="table-container">
@@ -2849,101 +2861,100 @@
             renderizarTabela(obterDadosFiltrados());
         });
 
+        // Helper: abre HTML como Blob URL — funciona em mobile (sem window.open popup)
+        function abrirRelatorio(html) {
+            const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }
+
+        const estiloRelatorio = `
+        <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; font-size: 10px; color: #2c2c2c; }
+            .subtitle { text-align: center; font-size: 10px; color: #666; margin-bottom: 14px; }
+            table { width: 100%; border-collapse: collapse; }
+            th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+            td { padding: 5px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
+            tbody tr:nth-child(even) { background: #fafafa; }
+            .num { color: #999; font-size: 9px; }
+            .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+            .badge-paid { background: #10b981; color: white; }
+            .badge-pending { background: #3b82f6; color: white; }
+            .badge-rejected { background: #ef4444; color: white; }
+            .badge-sim { background: #10b981; color: white; }
+            .badge-nao { background: #ef4444; color: white; }
+            .footer { margin-top: 12px; text-align: right; font-size: 9px; color: #999; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+        </style>`;
+
+        const fmtData = (d) => {
+            if (!d) return '';
+            try {
+                const dt = new Date(d);
+                if (!isNaN(dt.getTime())) {
+                    return String(dt.getDate()).padStart(2,'0') + '/' +
+                           String(dt.getMonth()+1).padStart(2,'0') + ' ' +
+                           String(dt.getHours()).padStart(2,'0') + ':' +
+                           String(dt.getMinutes()).padStart(2,'0');
+                }
+            } catch(e) {}
+            return d;
+        };
+
+        const mapStatus = (s) => {
+            const sl = String(s || '').toLowerCase().trim();
+            if (sl === 'paid' || sl === 'approved' || sl === 'confirmado' || sl === 'confirm') return { label: 'Aprovado', cls: 'badge-paid' };
+            if (sl === 'rejected' || sl === 'rejeitado' || sl === 'denied') return { label: 'Rejeitado', cls: 'badge-rejected' };
+            return { label: 'Processando', cls: 'badge-pending' };
+        };
+
         function gerarPDFConvidados() {
             const convidados = allData.filter(item => {
-                const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
-                return tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest');
+                const t = String(item.tipoInscricao || '').toLowerCase().trim();
+                return t.includes('convidado') || t.includes('encontrista') || t.includes('guest');
             }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
-            if (convidados.length === 0) {
-                alert('Nenhum convidado encontrado nos dados carregados.');
-                return;
-            }
+            if (convidados.length === 0) { alert('Nenhum convidado encontrado.'); return; }
 
-            const formatarData = (d) => {
-                if (!d) return '';
-                try {
-                    const dt = new Date(d);
-                    if (!isNaN(dt.getTime())) {
-                        const dia = String(dt.getDate()).padStart(2, '0');
-                        const mes = String(dt.getMonth() + 1).padStart(2, '0');
-                        const h = String(dt.getHours()).padStart(2, '0');
-                        const m = String(dt.getMinutes()).padStart(2, '0');
-                        return `${dia}/${mes} ${h}:${m}`;
-                    }
-                } catch(e) {}
-                return d;
-            };
-
-            const mapStatus = (s) => {
-                const sl = String(s || '').toLowerCase().trim();
-                if (sl === 'paid' || sl === 'approved' || sl === 'confirmado' || sl === 'confirm') return { label: 'Aprovado', cls: 'badge-paid' };
-                if (sl === 'rejected' || sl === 'rejeitado' || sl === 'denied') return { label: 'Rejeitado', cls: 'badge-rejected' };
-                return { label: 'Processando', cls: 'badge-pending' };
-            };
-
-            const win = window.open('', '_blank', 'width=1200,height=800');
-            win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Lista de Convidados</title>
-    <style>
-        @page { size: A4 landscape; margin: 12mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10px; color: #2c2c2c; }
-        h1 { text-align: center; font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #6b46c1; }
-        .subtitle { text-align: center; font-size: 10px; color: #666; margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        thead tr { background: #6b46c1; color: white; }
-        th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-        td { padding: 5px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        .num { color: #999; font-size: 9px; }
-        .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
-        .badge-paid { background: #10b981; color: white; }
-        .badge-pending { background: #3b82f6; color: white; }
-        .badge-rejected { background: #ef4444; color: white; }
-        .badge-sim { background: #10b981; color: white; }
-        .badge-nao { background: #ef4444; color: white; }
-        .footer { margin-top: 12px; text-align: right; font-size: 9px; color: #999; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style>
-</head>
-<body>
-    <h1>Lista de Convidados — Encontro</h1>
-    <div class="subtitle">Total: ${convidados.length} convidados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
-                <th>Discipulador</th><th>L&iacute;der</th><th>Status Pagamento</th>
-                <th>Presente</th><th>Inscrito Em</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${convidados.map((item, idx) => {
+            const linhas = convidados.map((item, idx) => {
                 const st = mapStatus(item.statusPagamento);
                 const presOk = isPresente(item.presenca);
                 return '<tr>' +
-                    '<td class="num">' + (idx + 1) + '</td>' +
+                    '<td class="num">' + (idx+1) + '</td>' +
                     '<td><strong>' + esc(item.nome) + '</strong></td>' +
                     '<td>' + esc(item.idade) + '</td>' +
                     '<td>' + esc(item.celular) + '</td>' +
                     '<td>' + esc(item.discipulador) + '</td>' +
                     '<td>' + esc(item.lider) + '</td>' +
                     '<td><span class="badge ' + esc(st.cls) + '">' + esc(st.label) + '</span></td>' +
-                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
-                    '<td>' + esc(formatarData(item.dataInscricao)) + '</td>' +
+                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'Não') + '</span></td>' +
+                    '<td>' + esc(fmtData(item.dataInscricao)) + '</td>' +
                     '</tr>';
-            }).join('')}
-        </tbody>
-    </table>
-    <div class="footer">Painel ADM &mdash; Encontro</div>
-    <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
-</body>
-</html>`);
-            win.document.close();
+            }).join('');
+
+            abrirRelatorio(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Lista de Convidados</title>${estiloRelatorio}
+<style>h1{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px;color:#6b46c1}
+thead tr{background:#6b46c1;color:white}</style></head><body>
+<h1>Lista de Convidados — Encontro</h1>
+<div class="subtitle">Total: ${convidados.length} convidados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+<table><thead><tr><th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
+<th>Discipulador</th><th>Líder</th><th>Status Pagamento</th>
+<th>Presente</th><th>Inscrito Em</th></tr></thead>
+<tbody>${linhas}</tbody></table>
+<div class="footer">Painel ADM — Encontro</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
         }
 
         function gerarPDFRejeitados() {
@@ -2952,87 +2963,36 @@
                 return sl === 'rejected' || sl === 'rejeitado' || sl === 'denied';
             }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
-            if (rejeitados.length === 0) {
-                alert('Nenhum inscrito rejeitado encontrado.');
-                return;
-            }
+            if (rejeitados.length === 0) { alert('Nenhum inscrito rejeitado encontrado.'); return; }
 
-            const formatarData = (d) => {
-                if (!d) return '';
-                try {
-                    const dt = new Date(d);
-                    if (!isNaN(dt.getTime())) {
-                        const dia = String(dt.getDate()).padStart(2, '0');
-                        const mes = String(dt.getMonth() + 1).padStart(2, '0');
-                        const h = String(dt.getHours()).padStart(2, '0');
-                        const m = String(dt.getMinutes()).padStart(2, '0');
-                        return `${dia}/${mes} ${h}:${m}`;
-                    }
-                } catch(e) {}
-                return d;
-            };
-
-            const win = window.open('', '_blank', 'width=1200,height=800');
-            win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Inscritos Rejeitados</title>
-    <style>
-        @page { size: A4 landscape; margin: 12mm; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 10px; color: #2c2c2c; }
-        h1 { text-align: center; font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #ef4444; }
-        .subtitle { text-align: center; font-size: 10px; color: #666; margin-bottom: 14px; }
-        table { width: 100%; border-collapse: collapse; }
-        thead tr { background: #ef4444; color: white; }
-        th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
-        td { padding: 5px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
-        tbody tr:nth-child(even) { background: #fafafa; }
-        .num { color: #999; font-size: 9px; }
-        .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
-        .badge-paid { background: #10b981; color: white; }
-        .badge-pending { background: #3b82f6; color: white; }
-        .badge-rejected { background: #ef4444; color: white; }
-        .badge-sim { background: #10b981; color: white; }
-        .badge-nao { background: #ef4444; color: white; }
-        .footer { margin-top: 12px; text-align: right; font-size: 9px; color: #999; }
-        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    </style>
-</head>
-<body>
-    <h1>Inscritos Rejeitados — Encontro</h1>
-    <div class="subtitle">Total: ${rejeitados.length} rejeitados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
-    <table>
-        <thead>
-            <tr>
-                <th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
-                <th>Discipulador</th><th>L&iacute;der</th><th>Status Pagamento</th>
-                <th>Presente</th><th>Inscrito Em</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${rejeitados.map((item, idx) => {
+            const linhas = rejeitados.map((item, idx) => {
                 const presOk = isPresente(item.presenca);
                 return '<tr>' +
-                    '<td class="num">' + (idx + 1) + '</td>' +
+                    '<td class="num">' + (idx+1) + '</td>' +
                     '<td><strong>' + esc(item.nome) + '</strong></td>' +
                     '<td>' + esc(item.idade) + '</td>' +
                     '<td>' + esc(item.celular) + '</td>' +
                     '<td>' + esc(item.discipulador) + '</td>' +
                     '<td>' + esc(item.lider) + '</td>' +
                     '<td><span class="badge badge-rejected">Rejeitado</span></td>' +
-                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
-                    '<td>' + esc(formatarData(item.dataInscricao)) + '</td>' +
+                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'Não') + '</span></td>' +
+                    '<td>' + esc(fmtData(item.dataInscricao)) + '</td>' +
                     '</tr>';
-            }).join('')}
-        </tbody>
-    </table>
-    <div class="footer">Painel ADM &mdash; Encontro</div>
-    <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
-</body>
-</html>`);
-            win.document.close();
+            }).join('');
+
+            abrirRelatorio(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Inscritos Rejeitados</title>${estiloRelatorio}
+<style>h1{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px;color:#ef4444}
+thead tr{background:#ef4444;color:white}</style></head><body>
+<h1>Inscritos Rejeitados — Encontro</h1>
+<div class="subtitle">Total: ${rejeitados.length} rejeitados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+<table><thead><tr><th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
+<th>Discipulador</th><th>Líder</th><th>Status Pagamento</th>
+<th>Presente</th><th>Inscrito Em</th></tr></thead>
+<tbody>${linhas}</tbody></table>
+<div class="footer">Painel ADM — Encontro</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
         }
 
         // Toggle do submenu Reports
@@ -3385,8 +3345,8 @@
         // Toggle para ocultar/mostrar filtros rápidos na aba dados
         document.getElementById('dadosResumoToggle').addEventListener('click', function() {
             const isOculto = document.getElementById('dadosResumo').classList.toggle('oculto');
-            this.textContent = isOculto ? 'Mostrar ∨' : 'Ocultar ∧';
-            this.title = isOculto ? 'Mostrar filtros' : 'Ocultar filtros';
+            this.textContent = isOculto ? '📊 Mostrar Cards' : '📊 Ocultar Cards';
+            this.title = isOculto ? 'Mostrar Cards' : 'Ocultar Cards';
         });
 
         // Navegação a partir dos cards da home
