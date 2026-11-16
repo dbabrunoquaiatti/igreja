@@ -700,11 +700,41 @@
             min-height: 400px;
             padding: 80px 40px;
         }
+        .dados-resumo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .dados-resumo-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-lighter);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dados-resumo-toggle {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 4px 12px;
+            font-size: 11px;
+            color: var(--text-light);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .dados-resumo-toggle:hover { background: var(--lighter-gray); color: var(--purple-primary); border-color: var(--purple-light); }
+        .dados-resumo.oculto { display: none; }
+        .dados-resumo-header.oculto + .dados-resumo { display: none; }
         .dados-resumo {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
             gap: 12px;
             margin-bottom: 24px;
+            transition: all 0.2s ease;
         }
         .resumo-card {
             background: var(--white);
@@ -769,6 +799,14 @@
             .resumo-label { font-size: 9px; }
             /* Se o último card ficar sozinho numa linha de 2 colunas, expande */
             #dadosResumo .resumo-card:last-child:nth-child(odd) { grid-column: span 2; }
+        }
+        @media (min-width: 769px) {
+            #dados table { font-size: 9px; }
+            #dados th { font-size: 8px; padding: 11px; }
+            #dados td { font-size: 9px; padding: 11px; }
+            #dados .status-badge { font-size: 8px; padding: 4px 8px; }
+            #dados .duplicado-badge { font-size: 8px; padding: 3px 8px; }
+            #dados .search-box input { font-size: 12px; }
         }
         .celular-with-whats {
             display: flex;
@@ -1243,15 +1281,17 @@
         .toast-notify.error { background: #dc2626; box-shadow: 0 6px 24px rgba(220, 38, 38, 0.4); }
         .toast-check { font-size: 18px; color: white; }
 
-        /* ── PC desktop (≥ 769px): fontes −15%, menu superior −20% altura ── */
+        /* ── PC desktop (≥ 769px): header −35%, sidebar −15% ── */
         @media (min-width: 769px) {
-            .header            { padding: 14px 24px; }
-            .header-title      { font-size: 20px; }
-            .menu-toggle       { font-size: 20px; }
-            .sidebar-logo      { font-size: 17px; }
-            .nav-icon          { font-size: 15px; }
-            .nav-item          { font-size: 14px; }
-            .nav-item-action   { font-size: 12px; }
+            .header            { padding: 9px 24px; }
+            .header-title      { font-size: 15px; }
+            .menu-toggle       { font-size: 15px; padding: 5px; }
+            .sidebar-logo      { font-size: 14px; }
+            .nav-icon          { font-size: 13px; width: 20px; }
+            .nav-item          { font-size: 12px; padding: 13px 20px; }
+            .nav-item-action   { font-size: 10px; padding: 11px 20px; }
+            .nav-subitem       { font-size: 12px; padding: 10px 20px 10px 42px; }
+            .nav-arrow         { font-size: 9px; }
             .stat-label        { font-size: 10px; }
             .stat-number       { font-size: 27px; }
             .stat-description  { font-size: 10px; }
@@ -1274,6 +1314,45 @@
             .sorteio-opcao label { font-size: 12px; }
             .toast-check         { font-size: 15px; }
         }
+        /* ── Submenu Reports ── */
+        .nav-parent {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-parent .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-arrow {
+            font-size: 10px;
+            color: var(--text-lighter);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+        .nav-parent.open .nav-arrow { transform: rotate(90deg); }
+        .nav-submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+            background: var(--lighter-gray);
+            border-left: 3px solid rgba(107, 70, 193, 0.2);
+        }
+        .nav-submenu.open { max-height: 200px; }
+        .nav-subitem {
+            padding: 11px 24px 11px 44px;
+            cursor: pointer;
+            color: var(--text-light);
+            font-weight: 500;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .nav-subitem:hover { background: var(--gray-border); color: var(--purple-primary); }
     </style>
 </head>
 <body>
@@ -1305,8 +1384,15 @@
                 <div class="nav-item" data-page="dados"><span class="nav-icon">📋</span><span>Dados</span></div>
                 <div class="nav-item" data-page="cronograma"><span class="nav-icon">📅</span><span>Cronograma</span></div>
                 <div class="nav-item" data-page="sorteio"><span class="nav-icon">🎉</span><span>Sorteio</span></div>
-                <div class="nav-item-action" id="navPdfConvidados"><span class="nav-icon">📄</span><span>Lista convidados</span></div>
-                <div class="nav-item-action" id="navMensagemInscricao"><span class="nav-icon">💬</span><span>Mensagem Inscrição</span></div>
+                <div class="nav-item nav-parent" id="navReports">
+                    <span class="nav-left"><span class="nav-icon">📊</span><span>Reports</span></span>
+                    <span class="nav-arrow">▶</span>
+                </div>
+                <div class="nav-submenu" id="navReportsSubmenu">
+                    <div class="nav-subitem" id="navSubPdfConvidados"><span class="nav-icon">📄</span><span>Lista Convidados</span></div>
+                    <div class="nav-subitem" id="navSubPdfRejeitados"><span class="nav-icon">🚫</span><span>Inscritos Rejeitados</span></div>
+                    <div class="nav-subitem" id="navSubMensagemInscricao"><span class="nav-icon">💬</span><span>Mensagem Inscrição</span></div>
+                </div>
             </nav>
         </aside>
         <div class="main-content">
@@ -1405,13 +1491,19 @@
                     </div>
                 </div>
                 <div id="dados" class="page-section">
+                    <div class="dados-resumo-header">
+                        <span class="dados-resumo-title">Filtros rápidos</span>
+                        <button class="dados-resumo-toggle" id="dadosResumoToggle" title="Minimizar filtros">
+                            <span id="dadosResumoToggleIcon">▲</span> Minimizar
+                        </button>
+                    </div>
                     <div class="dados-resumo" id="dadosResumo"></div>
                     <div class="table-container">
                         <div id="emptyStateContainer"></div>
                         <div class="table-header">
                             <div class="search-box">
                                 <span class="search-icon">🔍</span>
-                                <input type="text" id="searchInput" placeholder="Buscar por nome, email, CPF ou celular...">
+                                <input type="text" id="searchInput" placeholder="Buscar por nome, email, CPF, celular, líder...">
                             </div>
                         </div>
                         <div class="table-wrapper">
@@ -1584,7 +1676,7 @@
                 }
                 if (!convidadosAtivo) {
                     const s = document.createElement('style');
-                    s.textContent = '#miniConvidadosHome, #miniConvidadosPagos, #navPdfConvidados { display: none !important; }';
+                    s.textContent = '#miniConvidadosHome, #miniConvidadosPagos, #navSubPdfConvidados { display: none !important; }';
                     document.head.appendChild(s);
                 }
                 if (!servosAtivo && !convidadosAtivo) {
@@ -2435,6 +2527,7 @@
                     item.cpf.includes(termo) ||
                     item.celular.includes(termo) ||
                     item.discipulador.toLowerCase().includes(termo) ||
+                    item.lider.toLowerCase().includes(termo) ||
                     item.tipoInscricao.toLowerCase().includes(termo) ||
                     item.formaPagamento.toLowerCase().includes(termo)
                 );
@@ -2696,7 +2789,7 @@
             document.getElementById('totalPendentes').textContent = metrics.totalPendentes.toLocaleString('pt-BR');
             document.getElementById('totalServosPagos').textContent = metrics.totalServosPagos.toLocaleString('pt-BR');
             document.getElementById('totalConvidadosPagos').textContent = metrics.totalConvidadosPagos.toLocaleString('pt-BR');
-            renderizarTabela(allData);
+            renderizarTabela(obterDadosFiltrados());
         }
 
         document.getElementById('searchCronograma').addEventListener('input', function(e) {
@@ -2745,7 +2838,7 @@
             const convidados = allData.filter(item => {
                 const tipoLower = String(item.tipoInscricao || '').toLowerCase().trim();
                 return tipoLower.includes('convidado') || tipoLower.includes('encontrista') || tipoLower.includes('guest');
-            });
+            }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
             if (convidados.length === 0) {
                 alert('Nenhum convidado encontrado nos dados carregados.');
@@ -2810,7 +2903,7 @@
             <tr>
                 <th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
                 <th>Discipulador</th><th>L&iacute;der</th><th>Status Pagamento</th>
-                <th>M&eacute;todo</th><th>Presente</th><th>Inscrito Em</th>
+                <th>Presente</th><th>Inscrito Em</th>
             </tr>
         </thead>
         <tbody>
@@ -2825,7 +2918,6 @@
                     '<td>' + esc(item.discipulador) + '</td>' +
                     '<td>' + esc(item.lider) + '</td>' +
                     '<td><span class="badge ' + esc(st.cls) + '">' + esc(st.label) + '</span></td>' +
-                    '<td>' + esc(item.formaPagamento) + '</td>' +
                     '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
                     '<td>' + esc(formatarData(item.dataInscricao)) + '</td>' +
                     '</tr>';
@@ -2839,15 +2931,117 @@
             win.document.close();
         }
 
-        document.getElementById('navPdfConvidados').addEventListener('click', function() {
+        function gerarPDFRejeitados() {
+            const rejeitados = allData.filter(item => {
+                const sl = String(item.statusPagamento || '').toLowerCase().trim();
+                return sl === 'rejected' || sl === 'rejeitado' || sl === 'denied';
+            }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+            if (rejeitados.length === 0) {
+                alert('Nenhum inscrito rejeitado encontrado.');
+                return;
+            }
+
+            const formatarData = (d) => {
+                if (!d) return '';
+                try {
+                    const dt = new Date(d);
+                    if (!isNaN(dt.getTime())) {
+                        const dia = String(dt.getDate()).padStart(2, '0');
+                        const mes = String(dt.getMonth() + 1).padStart(2, '0');
+                        const h = String(dt.getHours()).padStart(2, '0');
+                        const m = String(dt.getMinutes()).padStart(2, '0');
+                        return `${dia}/${mes} ${h}:${m}`;
+                    }
+                } catch(e) {}
+                return d;
+            };
+
+            const win = window.open('', '_blank', 'width=1200,height=800');
+            win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Inscritos Rejeitados</title>
+    <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 10px; color: #2c2c2c; }
+        h1 { text-align: center; font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #ef4444; }
+        .subtitle { text-align: center; font-size: 10px; color: #666; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #ef4444; color: white; }
+        th { padding: 7px 8px; text-align: left; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+        td { padding: 5px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: middle; }
+        tbody tr:nth-child(even) { background: #fafafa; }
+        .num { color: #999; font-size: 9px; }
+        .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+        .badge-paid { background: #10b981; color: white; }
+        .badge-pending { background: #3b82f6; color: white; }
+        .badge-rejected { background: #ef4444; color: white; }
+        .badge-sim { background: #10b981; color: white; }
+        .badge-nao { background: #ef4444; color: white; }
+        .footer { margin-top: 12px; text-align: right; font-size: 9px; color: #999; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    </style>
+</head>
+<body>
+    <h1>Inscritos Rejeitados — Encontro</h1>
+    <div class="subtitle">Total: ${rejeitados.length} rejeitados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
+                <th>Discipulador</th><th>L&iacute;der</th><th>Status Pagamento</th>
+                <th>Presente</th><th>Inscrito Em</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rejeitados.map((item, idx) => {
+                const presOk = isPresente(item.presenca);
+                return '<tr>' +
+                    '<td class="num">' + (idx + 1) + '</td>' +
+                    '<td><strong>' + esc(item.nome) + '</strong></td>' +
+                    '<td>' + esc(item.idade) + '</td>' +
+                    '<td>' + esc(item.celular) + '</td>' +
+                    '<td>' + esc(item.discipulador) + '</td>' +
+                    '<td>' + esc(item.lider) + '</td>' +
+                    '<td><span class="badge badge-rejected">Rejeitado</span></td>' +
+                    '<td><span class="badge ' + (presOk ? 'badge-sim' : 'badge-nao') + '">' + (presOk ? 'Sim' : 'N&atilde;o') + '</span></td>' +
+                    '<td>' + esc(formatarData(item.dataInscricao)) + '</td>' +
+                    '</tr>';
+            }).join('')}
+        </tbody>
+    </table>
+    <div class="footer">Painel ADM &mdash; Encontro</div>
+    <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+</body>
+</html>`);
+            win.document.close();
+        }
+
+        // Toggle do submenu Reports
+        document.getElementById('navReports').addEventListener('click', function() {
+            this.classList.toggle('open');
+            document.getElementById('navReportsSubmenu').classList.toggle('open');
+        });
+
+        document.getElementById('navSubPdfConvidados').addEventListener('click', function() {
             if (!allData || allData.length === 0) {
                 alert('Nenhum dado carregado. Aguarde o upload do arquivo de inscritos.');
                 return;
             }
             gerarPDFConvidados();
-            if (window.innerWidth <= 768) {
-                document.getElementById('sidebar').classList.add('collapsed');
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
+        });
+
+        document.getElementById('navSubPdfRejeitados').addEventListener('click', function() {
+            if (!allData || allData.length === 0) {
+                alert('Nenhum dado carregado. Aguarde o upload do arquivo de inscritos.');
+                return;
             }
+            gerarPDFRejeitados();
+            if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
         });
 
         // Toggle do menu
@@ -2864,6 +3058,7 @@
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 const pageName = this.dataset.page;
+                if (!pageName) return; // Reports parent não tem data-page
                 abaAtiva = pageName; // Registrar aba ativa
                 document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
                 this.classList.add('active');
@@ -3074,7 +3269,7 @@
             toast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
         }
 
-        document.getElementById('navMensagemInscricao').addEventListener('click', function() {
+        document.getElementById('navSubMensagemInscricao').addEventListener('click', function() {
             const msg = window.CONFIG && window.CONFIG.MENSAGEM_INSCRICAO;
             if (window.innerWidth <= 768) {
                 document.getElementById('sidebar').classList.add('collapsed');
@@ -3171,6 +3366,16 @@
             document.getElementById('qrModalClose').addEventListener('click', () => qrOverlay.classList.remove('show'));
             qrOverlay.addEventListener('click', e => { if (e.target === qrOverlay) qrOverlay.classList.remove('show'); });
         })();
+
+        // Toggle para minimizar/expandir filtros rápidos na aba dados
+        document.getElementById('dadosResumoToggle').addEventListener('click', function() {
+            const container = document.getElementById('dadosResumo');
+            const icon = document.getElementById('dadosResumoToggleIcon');
+            const isOculto = container.classList.toggle('oculto');
+            icon.textContent = isOculto ? '▼' : '▲';
+            this.innerHTML = `<span id="dadosResumoToggleIcon">${isOculto ? '▼' : '▲'}</span> ${isOculto ? 'Expandir' : 'Minimizar'}`;
+            this.title = isOculto ? 'Expandir filtros' : 'Minimizar filtros';
+        });
 
         // Navegação a partir dos cards da home
         document.querySelectorAll('.stats-grid .stat-card[data-filtro]').forEach(card => {
