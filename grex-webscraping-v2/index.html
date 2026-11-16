@@ -1255,6 +1255,8 @@
             text-align: center;
         }
         .grex-modal-link:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59,130,246,0.35); }
+        .grex-modal-link-adm { background: linear-gradient(135deg, #6b46c1, #8b5cf6) !important; border-top: 1px solid rgba(255,255,255,0.15) !important; margin-top: 6px !important; }
+        .grex-modal-link-adm:hover { background: linear-gradient(135deg, #553594, #7c3aed) !important; }
         .grex-modal-close {
             position: absolute;
             top: 12px;
@@ -1610,6 +1612,7 @@
             <button class="grex-modal-link" id="grexLinkAdmin">Administração do Evento</button>
             <button class="grex-modal-link" id="grexLinkQrcode">QRCODE (LINK INSCRIÇÃO)</button>
             <button class="grex-modal-link" id="grexLinkAutomacao">Automação Presença</button>
+            <button class="grex-modal-link grex-modal-link-adm" id="grexLinkFinanceiro">💰 (ADM) Módulo Financeiro</button>
         </div>
     </div>
 
@@ -3340,6 +3343,11 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             });
             document.getElementById('qrModalClose').addEventListener('click', () => qrOverlay.classList.remove('show'));
             qrOverlay.addEventListener('click', e => { if (e.target === qrOverlay) qrOverlay.classList.remove('show'); });
+            document.getElementById('grexLinkFinanceiro').addEventListener('click', function() {
+                const url = window.CONFIG && window.CONFIG.FINANCEIRO_URL;
+                overlay.classList.remove('show');
+                _abrirUrl(url);
+            });
         })();
 
         // Toggle para ocultar/mostrar filtros rápidos na aba dados
