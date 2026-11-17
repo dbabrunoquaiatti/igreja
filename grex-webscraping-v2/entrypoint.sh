@@ -54,8 +54,9 @@ echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
 import http.server, os, hmac, secrets, time, json
 
-PANEL_USER = os.environ.get('PANEL_USER', 'admin')
-PANEL_PASS = os.environ.get('PANEL_PASSWORD', '')
+# PANEL_USER/PANEL_PASSWORD têm prioridade; se não definidos, usa GREX_EMAIL/GREX_PASSWORD
+PANEL_USER = os.environ.get('PANEL_USER') or os.environ.get('GREX_EMAIL') or 'admin'
+PANEL_PASS = os.environ.get('PANEL_PASSWORD') or os.environ.get('GREX_PASSWORD') or ''
 
 # Sessões server-side: {token: timestamp}
 _sessions = {}
@@ -106,7 +107,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 <div class="sub">Entre para continuar</div>
 <div class="err" id="err"></div>
 <form id="frm" autocomplete="on">
-<div class="grp"><label for="u">Usuário</label><input type="text" id="u" name="username" autocomplete="username" placeholder="Usuário" required></div>
+<div class="grp"><label for="u">E-mail</label><input type="email" id="u" name="username" autocomplete="username" inputmode="email" placeholder="seu@email.com" required></div>
 <div class="grp"><label for="p">Senha</label><input type="password" id="p" name="current-password" autocomplete="current-password" placeholder="••••••••" required></div>
 <button type="submit" class="btn" id="btn"><span class="btn-txt">Entrar</span><span class="btn-spin"><span class="ring"></span></span></button>
 </form>
