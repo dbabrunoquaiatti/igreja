@@ -97,11 +97,28 @@ LOADING_HTML = (
     'animation:grex-spin .9s linear infinite}'
     '.grex-loading-label{color:rgba(255,255,255,.5);font:500 15px/1 sans-serif;'
     'letter-spacing:.08em;animation:grex-pulse 2s ease-in-out infinite}'
+    '.grex-ir-btn{display:none;margin-top:8px;padding:13px 32px;border-radius:999px;'
+    'border:2px solid rgba(255,255,255,.35);background:transparent;color:#fff;'
+    'font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.04em;'
+    '-webkit-tap-highlight-color:transparent}'
     '</style>'
     '<div class="grex-ring"></div>'
     '<div class="grex-loading-label">Iniciando check-in…</div>'
-    "<script>if(!location.pathname.includes('/eventos/check-in'))"
-    "document.getElementById('grex-loading').style.display='flex';</script>"
+    '<button class="grex-ir-btn" id="grex-ir-btn"'
+    ' onclick="location.href=\'/eventos/check-in\'">Ir para Check-in</button>'
+    '<script>(function(){'
+    "if(location.pathname.includes('/eventos/check-in'))return;"
+    "document.getElementById('grex-loading').style.display='flex';"
+    # Mostra botão após 15 s
+    'setTimeout(function(){'
+    "var b=document.getElementById('grex-ir-btn');if(b)b.style.display='block';"
+    '},15000);'
+    # Navega automaticamente após 25 s
+    'setTimeout(function(){'
+    "if(!location.pathname.includes('/eventos/check-in'))"
+    "location.href='/eventos/check-in';"
+    '},25000);'
+    '})()</script>'
     '</div>'
 )
 
@@ -387,11 +404,20 @@ SCRIPT_AUTOLOGIN = r"""
     el.dispatchEvent(new Event('blur',   {bubbles: true}));
   }
 
+  // Fallback: se o fetch de creds falhar por qualquer razão, navega assim mesmo
+  var _fallbackNav = setTimeout(irParaCheckin, 22000);
+
   // Credenciais buscadas em tempo real via endpoint autenticado — nunca ficam no HTML.
-  fetch('/grex-autologin-creds', {cache: 'no-store'})
+  fetch('/grex-autologin-creds', {cache: 'no-store', credentials: 'same-origin'})
     .then(r => r.ok ? r.json() : null)
     .then(creds => {
-      if (!creds) return;
+      if (!creds) {
+        // Sem creds (sessão inválida ou erro), navega direto para check-in após 2 s
+        clearTimeout(_fallbackNav);
+        setTimeout(irParaCheckin, 2000);
+        return;
+      }
+      clearTimeout(_fallbackNav);
       const EMAIL = creds.email;
       const SENHA = creds.senha;
 
@@ -424,17 +450,18 @@ SCRIPT_AUTOLOGIN = r"""
         setTimeout(() => {
           btnEntrar.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
         }, 400);
-        setTimeout(() => { loginSubmetido = false; }, 6000);
-      }, 1500);
+        setTimeout(() => { loginSubmetido = false; }, 4000);
+      }, 1000);
 
+      // Se não chegou ao check-in em 12 s, força navegação
       setTimeout(() => {
         if (!location.pathname.includes('/eventos/check-in') && !navegacaoPendente) {
           clearInterval(poll);
           irParaCheckin();
         }
-      }, 20000);
+      }, 12000);
     })
-    .catch(() => {});
+    .catch(() => { clearTimeout(_fallbackNav); setTimeout(irParaCheckin, 2000); });
 })();
 """
 
