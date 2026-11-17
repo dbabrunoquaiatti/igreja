@@ -14,21 +14,24 @@ app = Flask(__name__)
 _PROXY_USER = os.environ.get('PROXY_USER') or os.environ.get('GREX_EMAIL') or 'admin'
 _PROXY_PASS = os.environ.get('PROXY_PASS') or os.environ.get('GREX_PASSWORD') or ''
 
-# Sessões server-side: {token: timestamp}
+# Sessões server-side: {token: {'ts': float, 'email': str, 'senha': str}}
 _sessions = {}
 _SESSION_TTL = 86400  # 24 h
 
 def _cleanup_sessions():
     now = time.time()
-    for k in [k for k, t in list(_sessions.items()) if now - t > _SESSION_TTL]:
+    for k in [k for k, v in list(_sessions.items()) if now - v['ts'] > _SESSION_TTL]:
         del _sessions[k]
 
-def _session_ok():
-    if not _PROXY_PASS:
-        return True
+def _get_session():
     tok = request.cookies.get('grex_session', '')
-    ts = _sessions.get(tok)
-    return bool(ts and time.time() - ts < _SESSION_TTL)
+    sess = _sessions.get(tok)
+    if sess and time.time() - sess['ts'] < _SESSION_TTL:
+        return sess
+    return None
+
+def _session_ok():
+    return _get_session() is not None
 
 @app.before_request
 def _proxy_auth():
@@ -36,7 +39,12 @@ def _proxy_auth():
         return  # página de login é pública
     if _session_ok():
         return  # sessão válida
-    if request.method in ('GET', 'HEAD'):
+    # Redireciona para login APENAS em navegações de topo (HTML).
+    # Requests de sub-recursos (JS/CSS/imagens) retornam 401 para não quebrar MIME.
+    is_nav = (request.headers.get('Sec-Fetch-Mode') == 'navigate' or
+              (not request.headers.get('Sec-Fetch-Mode') and
+               'text/html' in request.headers.get('Accept', '')))
+    if request.method in ('GET', 'HEAD') and is_nav:
         return redirect('/grex-login')
     return Response('Não autorizado', 401)
 
@@ -572,7 +580,7 @@ frm.addEventListener('submit',function(e){
 
 @app.route('/grex-login', methods=['GET'])
 def grex_login_get():
-    if not _PROXY_PASS or _session_ok():
+    if _session_ok():
         return redirect('/')
     return Response(_LOGIN_HTML, content_type='text/html; charset=utf-8')
 
@@ -582,15 +590,17 @@ def grex_login_post():
     data = request.get_json(silent=True) or {}
     user = str(data.get('user', ''))
     pwd  = str(data.get('pass', ''))
-    if not _PROXY_PASS:
-        ok = True
-    else:
+    # Se PROXY_PASS configurado, valida contra ele; senão aceita qualquer credencial
+    # (as credenciais serão usadas para o auto-login no GREX)
+    if _PROXY_PASS:
         ok = (hmac.compare_digest(user, _PROXY_USER) and
               hmac.compare_digest(pwd,  _PROXY_PASS))
+    else:
+        ok = bool(user and pwd)
     if ok:
         _cleanup_sessions()
         tok = secrets.token_urlsafe(32)
-        _sessions[tok] = time.time()
+        _sessions[tok] = {'ts': time.time(), 'email': user, 'senha': pwd}
         resp = Response(json.dumps({'ok': True}), content_type='application/json')
         resp.set_cookie('grex_session', tok, httponly=True, samesite='Strict', path='/')
         return resp
@@ -634,8 +644,13 @@ def firebase_proxy(host, path):
 
 @app.route('/grex-autologin-creds')
 def autologin_creds():
+    sess = _get_session()
+    if sess and sess.get('email') and sess.get('senha'):
+        email, senha = sess['email'], sess['senha']
+    else:
+        email, senha = GREX_EMAIL, GREX_SENHA
     resp = Response(
-        json.dumps({'email': GREX_EMAIL, 'senha': GREX_SENHA}),
+        json.dumps({'email': email, 'senha': senha}),
         content_type='application/json',
     )
     resp.headers['Cache-Control'] = 'no-store'
