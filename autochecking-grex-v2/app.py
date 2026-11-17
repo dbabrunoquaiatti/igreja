@@ -2,39 +2,43 @@
 import os
 import sys
 import json
-import base64
+import hmac
 import secrets
+import time
 import requests
-from flask import Flask, request, Response
+from flask import Flask, request, Response, redirect
 
 app = Flask(__name__)
 
-_PROXY_USER = os.environ.get('PROXY_USER', 'admin')
-_PROXY_PASS = os.environ.get('PROXY_PASS', '')
+# PROXY_USER/PROXY_PASS têm prioridade; se não definidos, usa GREX_EMAIL/GREX_PASSWORD
+_PROXY_USER = os.environ.get('PROXY_USER') or os.environ.get('GREX_EMAIL') or 'admin'
+_PROXY_PASS = os.environ.get('PROXY_PASS') or os.environ.get('GREX_PASSWORD') or ''
 
-if not _PROXY_PASS:
-    _PROXY_PASS = secrets.token_urlsafe(16)
-    print(
-        f'\n[AVISO] PROXY_PASS não definido. Token temporário gerado automaticamente:\n'
-        f'  Usuário : {_PROXY_USER}\n'
-        f'  Senha   : {_PROXY_PASS}\n'
-        f'  Defina PROXY_PASS na variável de ambiente para fixar uma senha permanente.\n',
-        file=sys.stderr, flush=True,
-    )
+# Sessões server-side: {token: timestamp}
+_sessions = {}
+_SESSION_TTL = 86400  # 24 h
+
+def _cleanup_sessions():
+    now = time.time()
+    for k in [k for k, t in list(_sessions.items()) if now - t > _SESSION_TTL]:
+        del _sessions[k]
+
+def _session_ok():
+    if not _PROXY_PASS:
+        return True
+    tok = request.cookies.get('grex_session', '')
+    ts = _sessions.get(tok)
+    return bool(ts and time.time() - ts < _SESSION_TTL)
 
 @app.before_request
 def _proxy_auth():
-    auth = request.headers.get('Authorization', '')
-    if auth.startswith('Basic '):
-        try:
-            user, pwd = base64.b64decode(auth[6:]).decode('utf-8').split(':', 1)
-            if user == _PROXY_USER and pwd == _PROXY_PASS:
-                return
-        except Exception:
-            pass
-    resp = Response('Unauthorized', 401)
-    resp.headers['WWW-Authenticate'] = 'Basic realm="Grex Proxy"'
-    return resp
+    if request.path.startswith('/grex-login'):
+        return  # página de login é pública
+    if _session_ok():
+        return  # sessão válida
+    if request.method in ('GET', 'HEAD'):
+        return redirect('/grex-login')
+    return Response('Não autorizado', 401)
 
 GREX_BASE = "https://portal.grex.com.br"
 
@@ -493,6 +497,107 @@ def _build_upstream_headers():
         if hdr in headers:
             headers[hdr] = headers[hdr].replace(proxy_origin, GREX_BASE)
     return headers
+
+
+_LOGIN_HTML = """<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acesso — Check-in</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Lato,sans-serif;background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 50%,#6b46c1 100%);min-height:100vh}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.logo{text-align:center;margin-bottom:8px}
+.logo svg{width:56px;height:56px}
+.title{font-size:22px;font-weight:700;color:#2c2c2c;text-align:center;margin-bottom:4px}
+.sub{font-size:14px;color:#666;text-align:center;margin-bottom:28px}
+.grp{margin-bottom:16px}
+.grp label{display:block;font-size:13px;font-weight:600;color:#2c2c2c;margin-bottom:6px}
+.grp input{width:100%;padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:10px;font-size:16px;color:#2c2c2c;background:#f5f5f5;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+.grp input:focus{border-color:#6b46c1;background:#fff}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,#6b46c1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;position:relative;overflow:hidden;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.98);opacity:.9}
+.btn:disabled{opacity:.7;cursor:not-allowed}
+.btn-txt{transition:opacity .2s;display:block}
+.btn-spin{display:none;position:absolute;inset:0;align-items:center;justify-content:center}
+.btn.loading .btn-txt{opacity:0}
+.btn.loading .btn-spin{display:flex}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ring{width:22px;height:22px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
+@keyframes fadein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.err.show{display:block;animation:fadein .3s ease}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="card">
+<div class="logo"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="14" fill="#6b46c1"/><path d="M28 14L38 20V32L28 38L18 32V20L28 14Z" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="28" cy="26" r="5" fill="white"/></svg></div>
+<div class="title">Check-in Grex</div>
+<div class="sub">Entre para continuar</div>
+<div class="err" id="err"></div>
+<form id="frm" autocomplete="on">
+<div class="grp"><label for="u">E-mail</label><input type="email" id="u" name="username" autocomplete="username" inputmode="email" placeholder="seu@email.com" required></div>
+<div class="grp"><label for="p">Senha</label><input type="password" id="p" name="current-password" autocomplete="current-password" placeholder="••••••••" required></div>
+<button type="submit" class="btn" id="btn"><span class="btn-txt">Entrar</span><span class="btn-spin"><span class="ring"></span></span></button>
+</form>
+</div></div>
+<script>
+(function(){
+var frm=document.getElementById('frm'),btn=document.getElementById('btn'),errEl=document.getElementById('err');
+function showErr(m){errEl.textContent=m;errEl.classList.add('show');}
+function hideErr(){errEl.classList.remove('show');}
+function setLoad(on){btn.disabled=on;btn.classList.toggle('loading',on);}
+frm.addEventListener('submit',function(e){
+  e.preventDefault();hideErr();
+  var u=document.getElementById('u').value.trim();
+  var p=document.getElementById('p').value;
+  if(!u||!p){showErr('Preencha e-mail e senha.');return;}
+  setLoad(true);
+  fetch('/grex-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p}),credentials:'same-origin'})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
+    .then(function(res){
+      if(res.ok&&res.d.ok){location.replace('/');}
+      else{setLoad(false);showErr((res.d&&res.d.error)||'E-mail ou senha incorretos.');}
+    })
+    .catch(function(){setLoad(false);showErr('Erro de conexão. Tente novamente.');});
+});
+})();
+</script>
+</body>
+</html>"""
+
+
+@app.route('/grex-login', methods=['GET'])
+def grex_login_get():
+    if not _PROXY_PASS or _session_ok():
+        return redirect('/')
+    return Response(_LOGIN_HTML, content_type='text/html; charset=utf-8')
+
+
+@app.route('/grex-login', methods=['POST'])
+def grex_login_post():
+    data = request.get_json(silent=True) or {}
+    user = str(data.get('user', ''))
+    pwd  = str(data.get('pass', ''))
+    if not _PROXY_PASS:
+        ok = True
+    else:
+        ok = (hmac.compare_digest(user, _PROXY_USER) and
+              hmac.compare_digest(pwd,  _PROXY_PASS))
+    if ok:
+        _cleanup_sessions()
+        tok = secrets.token_urlsafe(32)
+        _sessions[tok] = time.time()
+        resp = Response(json.dumps({'ok': True}), content_type='application/json')
+        resp.set_cookie('grex_session', tok, httponly=True, samesite='Strict', path='/')
+        return resp
+    return Response(
+        json.dumps({'ok': False, 'error': 'E-mail ou senha incorretos.'}),
+        status=401, content_type='application/json',
+    )
 
 
 @app.route('/grex-firebase/<host>/<path:path>',
