@@ -3,6 +3,7 @@ import os
 import sys
 import json
 import hmac
+import re as _re
 import secrets
 import time
 import requests
@@ -494,6 +495,24 @@ STRIP_RESPONSE = {
 }
 
 
+def _rewrite_set_cookie(val):
+    """Remove Domain= do Set-Cookie para o browser armazenar o cookie no domínio do proxy."""
+    return _re.sub(r';\s*[Dd]omain=[^;,]*', '', val)
+
+
+def _get_resp_headers(resp):
+    """Extrai headers filtrando STRIP_RESPONSE e reescrevendo Set-Cookie (domain fix)."""
+    try:
+        raw_cookies = resp.raw.headers.getlist('Set-Cookie')
+    except Exception:
+        raw_cookies = []
+    headers = [(k, v) for k, v in resp.headers.items()
+               if k.lower() not in STRIP_RESPONSE and k.lower() != 'set-cookie']
+    for ck in raw_cookies:
+        headers.append(('Set-Cookie', _rewrite_set_cookie(ck)))
+    return headers
+
+
 def proxy_base():
     return request.url_root.rstrip('/')
 
@@ -664,8 +683,7 @@ def firebase_proxy(host, path):
     except requests.RequestException as e:
         return Response(f"Erro Firebase proxy: {e}", status=502)
 
-    resp_headers = [(k, v) for k, v in resp.headers.items()
-                    if k.lower() not in STRIP_RESPONSE]
+    resp_headers = _get_resp_headers(resp)
     return Response(resp.content, resp.status_code, resp_headers)
 
 
@@ -691,21 +709,24 @@ def proxy(path):
     if request.query_string:
         url += '?' + request.query_string.decode('utf-8', errors='replace')
 
+    # Não envia grex_session (cookie do proxy) para o GREX upstream
+    grex_cookies = {k: v for k, v in request.cookies.items() if k != 'grex_session'}
+
     try:
         resp = requests.request(
             method=request.method,
             url=url,
             headers=_build_upstream_headers(),
             data=request.get_data(),
-            cookies=request.cookies,
+            cookies=grex_cookies,
             allow_redirects=False,
             timeout=30,
         )
     except requests.RequestException as e:
         return Response(f"Erro ao conectar com o Grex: {e}", status=502)
 
-    resp_headers = [(k, v) for k, v in resp.headers.items()
-                    if k.lower() not in STRIP_RESPONSE]
+    # Reescreve Set-Cookie removendo Domain= para o browser armazenar no domínio do proxy
+    resp_headers = _get_resp_headers(resp)
 
     if resp.status_code in (301, 302, 303, 307, 308):
         resp_headers = [
