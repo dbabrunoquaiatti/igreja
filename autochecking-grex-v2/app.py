@@ -354,11 +354,25 @@ SCRIPT_AUTOLOGIN = r"""
     }
   }).observe(document.body, {childList: true, subtree: true});
 
+  function visivel(el) {
+    return el && el.offsetParent !== null && getComputedStyle(el).display !== 'none';
+  }
+
+  function encontrarCampo(seletores) {
+    for (const sel of seletores) {
+      const el = document.querySelector(sel);
+      if (visivel(el)) return el;
+    }
+    return null;
+  }
+
   function setVal(el, val) {
+    el.focus();
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
     setter.call(el, val);
-    el.dispatchEvent(new Event('input', {bubbles: true}));
+    el.dispatchEvent(new Event('input',  {bubbles: true}));
     el.dispatchEvent(new Event('change', {bubbles: true}));
+    el.dispatchEvent(new Event('blur',   {bubbles: true}));
   }
 
   // Credenciais buscadas em tempo real via endpoint autenticado — nunca ficam no HTML.
@@ -373,19 +387,31 @@ SCRIPT_AUTOLOGIN = r"""
         if (location.pathname.includes('/eventos/check-in')) { clearInterval(poll); return; }
         if (loginSubmetido || navegacaoPendente) return;
 
-        const campoEmail = document.querySelector('#login-email-desktop');
-        const campoSenha = document.querySelector('#login-password-desktop');
+        const campoEmail = encontrarCampo([
+          '#login-email-desktop',
+          '#login-email-mobile',
+          'input[type="email"]',
+        ]);
+        const campoSenha = encontrarCampo([
+          '#login-password-desktop',
+          '#login-password-mobile',
+          'input[type="password"]',
+        ]);
         if (!campoEmail || !campoSenha) return;
 
         setVal(campoEmail, EMAIL);
         setVal(campoSenha, SENHA);
-        const btnEntrar = [...document.querySelectorAll('button')].find(b =>
-          b.textContent.trim().toLowerCase().includes('entrar')
-        );
+
+        const btnEntrar = document.querySelector("button[type='submit']") ||
+          [...document.querySelectorAll('button')].find(b =>
+            b.textContent.trim().toLowerCase().includes('entrar')
+          );
         if (!btnEntrar) return;
 
         loginSubmetido = true;
-        setTimeout(() => btnEntrar.click(), 300);
+        setTimeout(() => {
+          btnEntrar.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
+        }, 400);
         setTimeout(() => { loginSubmetido = false; }, 6000);
       }, 1500);
 
