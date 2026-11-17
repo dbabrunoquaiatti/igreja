@@ -37,11 +37,13 @@ def _session_ok():
 @app.before_request
 def _proxy_auth():
     if request.path.startswith('/grex-login'):
-        return  # página de login é pública
+        return
     if _session_ok():
-        return  # sessão válida
-    # Redireciona para login APENAS em navegações de topo (HTML).
-    # Requests de sub-recursos (JS/CSS/imagens) retornam 401 para não quebrar MIME.
+        return
+    # Assets nunca devem receber HTML — MIME type seria bloqueado pelo browser
+    if _re.search(r'\.(js|mjs|css|png|jpg|jpeg|gif|svg|woff2?|ico|map|webp|json)(\?|$)',
+                  request.path, _re.I):
+        return Response('Não autorizado', 401)
     is_nav = (request.headers.get('Sec-Fetch-Mode') == 'navigate' or
               (not request.headers.get('Sec-Fetch-Mode') and
                'text/html' in request.headers.get('Accept', '')))
@@ -372,7 +374,6 @@ SCRIPT_AUTOLOGIN = r"""
 
   if (location.pathname.includes('/eventos/check-in')) return;
 
-  let loginSubmetido = false;
   let navegacaoPendente = false;
 
   new MutationObserver(() => {
@@ -405,15 +406,13 @@ SCRIPT_AUTOLOGIN = r"""
     el.dispatchEvent(new Event('blur',   {bubbles: true}));
   }
 
-  // Fallback: se o fetch de creds falhar por qualquer razão, navega assim mesmo
+  // Fallback global: se tudo falhar, navega após 22 s
   var _fallbackNav = setTimeout(irParaCheckin, 22000);
 
-  // Credenciais buscadas em tempo real via endpoint autenticado — nunca ficam no HTML.
   fetch('/grex-autologin-creds', {cache: 'no-store', credentials: 'same-origin'})
     .then(r => r.ok ? r.json() : null)
     .then(creds => {
       if (!creds) {
-        // Sem creds (sessão inválida ou erro), navega direto para check-in após 2 s
         clearTimeout(_fallbackNav);
         setTimeout(irParaCheckin, 2000);
         return;
@@ -424,7 +423,7 @@ SCRIPT_AUTOLOGIN = r"""
 
       const poll = setInterval(() => {
         if (location.pathname.includes('/eventos/check-in')) { clearInterval(poll); return; }
-        if (loginSubmetido || navegacaoPendente) return;
+        if (navegacaoPendente) return;
 
         const campoEmail = encontrarCampo([
           '#login-email-desktop',
@@ -438,6 +437,7 @@ SCRIPT_AUTOLOGIN = r"""
         ]);
         if (!campoEmail || !campoSenha) return;
 
+        clearInterval(poll);
         setVal(campoEmail, EMAIL);
         setVal(campoSenha, SENHA);
 
@@ -445,16 +445,17 @@ SCRIPT_AUTOLOGIN = r"""
           [...document.querySelectorAll('button')].find(b =>
             b.textContent.trim().toLowerCase().includes('entrar')
           );
-        if (!btnEntrar) return;
+        if (!btnEntrar) { setTimeout(irParaCheckin, 2000); return; }
 
-        loginSubmetido = true;
         setTimeout(() => {
           btnEntrar.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
         }, 400);
-        setTimeout(() => { loginSubmetido = false; }, 4000);
+        // Navega para check-in logo após o auth completar — impede o GREX de redirecionar
+        // externamente (ex: encontroadultos.qbdigital.com.br) antes de chegar aqui
+        setTimeout(irParaCheckin, 2500);
       }, 1000);
 
-      // Se não chegou ao check-in em 12 s, força navegação
+      // Timeout: se não encontrou o form em 12 s, força navegação
       setTimeout(() => {
         if (!location.pathname.includes('/eventos/check-in') && !navegacaoPendente) {
           clearInterval(poll);
@@ -729,10 +730,16 @@ def proxy(path):
     resp_headers = _get_resp_headers(resp)
 
     if resp.status_code in (301, 302, 303, 307, 308):
-        resp_headers = [
-            (k, v.replace(GREX_BASE, proxy_base()) if k.lower() == 'location' else v)
-            for k, v in resp_headers
-        ]
+        new_hdrs = []
+        for k, v in resp_headers:
+            if k.lower() == 'location':
+                if GREX_BASE in v:
+                    v = v.replace(GREX_BASE, proxy_base())
+                elif v.startswith('http') and proxy_base() not in v:
+                    # Redirect externo (ex: URL do evento no GREX) → mantém no proxy
+                    v = '/eventos/check-in'
+            new_hdrs.append((k, v))
+        resp_headers = new_hdrs
 
     content_type = resp.headers.get('Content-Type', '')
     if 'text/html' in content_type:
