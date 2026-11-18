@@ -447,12 +447,26 @@ SCRIPT_AUTOLOGIN = r"""
           );
         if (!btnEntrar) { setTimeout(irParaCheckin, 2000); return; }
 
+        const loginPath = location.pathname;
         setTimeout(() => {
           btnEntrar.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true}));
         }, 400);
-        // Navega para check-in logo após o auth completar — impede o GREX de redirecionar
-        // externamente (ex: encontroadultos.qbdigital.com.br) antes de chegar aqui
-        setTimeout(irParaCheckin, 2500);
+
+        // Espera o Angular navegar após auth (pathname muda = sessão estabelecida)
+        // em vez de timer fixo — garante que os cookies do GREX já estão gravados
+        const loginTimestamp = Date.now();
+        const authPoll = setInterval(() => {
+          if (Date.now() - loginTimestamp < 1200) return; // mínimo 1.2 s após click
+          if (location.pathname !== loginPath) {
+            clearInterval(authPoll);
+            clearTimeout(authTimer);
+            irParaCheckin();
+          }
+        }, 300);
+        const authTimer = setTimeout(() => {
+          clearInterval(authPoll);
+          irParaCheckin();
+        }, 7000);
       }, 1000);
 
       // Timeout: se não encontrou o form em 12 s, força navegação
@@ -503,10 +517,19 @@ def _rewrite_set_cookie(val):
 
 def _get_resp_headers(resp):
     """Extrai headers filtrando STRIP_RESPONSE e reescrevendo Set-Cookie (domain fix)."""
+    raw_cookies = []
     try:
         raw_cookies = resp.raw.headers.getlist('Set-Cookie')
+    except AttributeError:
+        # urllib3 mais antigo: itera items() que preserva entradas múltiplas
+        try:
+            raw_cookies = [v for k, v in resp.raw.headers.items()
+                           if k.lower() == 'set-cookie']
+        except Exception:
+            pass
     except Exception:
-        raw_cookies = []
+        pass
+
     headers = [(k, v) for k, v in resp.headers.items()
                if k.lower() not in STRIP_RESPONSE and k.lower() != 'set-cookie']
     for ck in raw_cookies:
@@ -730,13 +753,16 @@ def proxy(path):
     resp_headers = _get_resp_headers(resp)
 
     if resp.status_code in (301, 302, 303, 307, 308):
+        # Só intercepta redirect externo em navegações HTML — nunca em assets (JS/CSS/etc.)
+        is_asset_req = bool(_re.search(
+            r'\.(js|mjs|css|png|jpg|jpeg|gif|svg|woff2?|ico|map|webp|json)(\?|$)',
+            request.path, _re.I))
         new_hdrs = []
         for k, v in resp_headers:
             if k.lower() == 'location':
                 if GREX_BASE in v:
                     v = v.replace(GREX_BASE, proxy_base())
-                elif v.startswith('http') and proxy_base() not in v:
-                    # Redirect externo (ex: URL do evento no GREX) → mantém no proxy
+                elif v.startswith('http') and proxy_base() not in v and not is_asset_req:
                     v = '/eventos/check-in'
             new_hdrs.append((k, v))
         resp_headers = new_hdrs
