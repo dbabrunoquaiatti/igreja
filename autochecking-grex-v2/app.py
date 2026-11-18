@@ -6,6 +6,7 @@ import hmac
 import re as _re
 import secrets
 import time
+import urllib.parse
 import requests
 from flask import Flask, request, Response, redirect
 
@@ -89,7 +90,8 @@ GREX_EMAIL, GREX_SENHA = _ler_credenciais()
 # ── Tela de loading: injetada como primeiro filho do <body> pelo servidor ──
 # Aparece imediatamente (sem esperar JS/DOMContentLoaded). Só mostra fora de /eventos/check-in.
 LOADING_HTML = (
-    '<div id="grex-loading" style="display:none;position:fixed;inset:0;'
+    '<div id="grex-loading" style="display:none;position:fixed;'
+    'top:0;right:0;bottom:0;left:0;'
     'z-index:2147483646;background:#0a1628;flex-direction:column;'
     'align-items:center;justify-content:center;gap:28px;">'
     '<style>'
@@ -224,7 +226,7 @@ SCRIPT_SONS = r"""
     @keyframes grex-pop    { from { transform:scale(0.88); opacity:0 } to { transform:scale(1); opacity:1 } }
     @keyframes grex-draw   { to { stroke-dashoffset: 0 } }
     #grex-overlay {
-      position:fixed; inset:0; z-index:2147483647;
+      position:fixed; top:0; right:0; bottom:0; left:0; z-index:2147483647;
       animation:grex-fadein 0.28s ease;
       cursor:pointer;
     }
@@ -496,8 +498,10 @@ _LOADING_COVER_CSS = (
     "<script>"
     "if(location.pathname.includes('/eventos/check-in')){"
     "document.write('<style>body{background:initial!important}</style>');"
-    "document.addEventListener('DOMContentLoaded',function(){"
-    "document.body.classList.add('grex-pronto');});"
+    "function _gp(){document.body&&document.body.classList.add('grex-pronto');}"
+    "if(document.readyState==='loading'){"
+    "document.addEventListener('DOMContentLoaded',_gp);"
+    "}else{_gp();}"
     "}"
     "</script>"
 )
@@ -613,7 +617,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 .btn:active{transform:scale(.98);opacity:.9}
 .btn:disabled{opacity:.7;cursor:not-allowed}
 .btn-txt{transition:opacity .2s;display:block}
-.btn-spin{display:none;position:absolute;inset:0;align-items:center;justify-content:center}
+.btn-spin{display:none;position:absolute;top:0;right:0;bottom:0;left:0;align-items:center;justify-content:center}
 .btn.loading .btn-txt{opacity:0}
 .btn.loading .btn-spin{display:flex}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -629,9 +633,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 <div class="title">Check-in Grex</div>
 <div class="sub">Entre para continuar</div>
 <div class="err" id="err"></div>
-<form id="frm" autocomplete="on">
-<div class="grp"><label for="u">E-mail</label><input type="email" id="u" name="username" autocomplete="username" inputmode="email" placeholder="seu@email.com" required></div>
-<div class="grp"><label for="p">Senha</label><input type="password" id="p" name="current-password" autocomplete="current-password" placeholder="••••••••" required></div>
+<form id="frm" method="POST" action="/grex-login" autocomplete="on">
+<div class="grp"><label for="u">E-mail</label><input type="email" id="u" name="user" autocomplete="username" inputmode="email" placeholder="seu@email.com" required></div>
+<div class="grp"><label for="p">Senha</label><input type="password" id="p" name="pass" autocomplete="current-password" placeholder="••••••••" required></div>
 <button type="submit" class="btn" id="btn"><span class="btn-txt">Entrar</span><span class="btn-spin"><span class="ring"></span></span></button>
 </form>
 </div></div>
@@ -639,21 +643,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 (function(){
 var frm=document.getElementById('frm'),btn=document.getElementById('btn'),errEl=document.getElementById('err');
 function showErr(m){errEl.textContent=m;errEl.classList.add('show');}
-function hideErr(){errEl.classList.remove('show');}
 function setLoad(on){btn.disabled=on;btn.classList.toggle('loading',on);}
+var p=new URLSearchParams(location.search);
+if(p.get('err'))showErr(decodeURIComponent(p.get('err')));
 frm.addEventListener('submit',function(e){
-  e.preventDefault();hideErr();
   var u=document.getElementById('u').value.trim();
-  var p=document.getElementById('p').value;
-  if(!u||!p){showErr('Preencha e-mail e senha.');return;}
+  var pw=document.getElementById('p').value;
+  if(!u||!pw){e.preventDefault();showErr('Preencha e-mail e senha.');return;}
   setLoad(true);
-  fetch('/grex-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user:u,pass:p}),credentials:'same-origin'})
-    .then(function(r){return r.json().then(function(d){return{ok:r.ok,d:d};});})
-    .then(function(res){
-      if(res.ok&&res.d.ok){location.replace('/');}
-      else{setLoad(false);showErr((res.d&&res.d.error)||'E-mail ou senha incorretos.');}
-    })
-    .catch(function(){setLoad(false);showErr('Erro de conexão. Tente novamente.');});
 });
 })();
 </script>
@@ -670,27 +667,41 @@ def grex_login_get():
 
 @app.route('/grex-login', methods=['POST'])
 def grex_login_post():
-    data = request.get_json(silent=True) or {}
-    user = str(data.get('user', ''))
-    pwd  = str(data.get('pass', ''))
-    # Se PROXY_PASS configurado, valida contra ele; senão aceita qualquer credencial
-    # (as credenciais serão usadas para o auto-login no GREX)
+    ct = request.content_type or ''
+    if 'application/json' in ct:
+        data = request.get_json(silent=True) or {}
+        user = str(data.get('user', ''))
+        pwd  = str(data.get('pass', ''))
+        is_json = True
+    else:
+        user = str(request.form.get('user', ''))
+        pwd  = str(request.form.get('pass', ''))
+        is_json = False
+
     if _PROXY_PASS:
         ok = (hmac.compare_digest(user, _PROXY_USER) and
               hmac.compare_digest(pwd,  _PROXY_PASS))
     else:
         ok = bool(user and pwd)
+
     if ok:
         _cleanup_sessions()
         tok = secrets.token_urlsafe(32)
         _sessions[tok] = {'ts': time.time(), 'email': user, 'senha': pwd}
-        resp = Response(json.dumps({'ok': True}), content_type='application/json')
-        resp.set_cookie('grex_session', tok, httponly=True, samesite='Strict', path='/')
+        if is_json:
+            resp = Response(json.dumps({'ok': True}), content_type='application/json')
+        else:
+            resp = redirect('/')
+        resp.set_cookie('grex_session', tok, httponly=True,
+                        samesite='Lax', path='/', secure=True)
         return resp
-    return Response(
-        json.dumps({'ok': False, 'error': 'E-mail ou senha incorretos.'}),
-        status=401, content_type='application/json',
-    )
+
+    if is_json:
+        return Response(
+            json.dumps({'ok': False, 'error': 'E-mail ou senha incorretos.'}),
+            status=401, content_type='application/json',
+        )
+    return redirect('/grex-login?err=' + urllib.parse.quote('E-mail ou senha incorretos.'))
 
 
 @app.route('/grex-firebase/<host>/<path:path>',
