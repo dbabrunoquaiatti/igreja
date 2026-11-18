@@ -123,12 +123,20 @@ LOADING_HTML = (
     "var el=document.getElementById('grex-loading');if(el)el.style.display='none';"
     "document.body.classList.add('grex-pronto');}"
     "if(isCheckin){"
-    "function checar(){var ar=document.querySelector('app-root');return ar&&ar.children.length>0;}"
-    "if(checar()){marcarPronto();return;}"
-    "var obs=new MutationObserver(function(){"
-    "if(checar()){obs.disconnect();clearTimeout(fb);marcarPronto();}});"
-    "obs.observe(document.body,{childList:true,subtree:true});"
-    "var fb=setTimeout(function(){obs.disconnect();marcarPronto();},10000);"
+    # Espera mínimo 3s E conteúdo real no app-root (>0 nós)
+    # Sem o mínimo, o MutationObserver dispara no router-outlet vazio → tela branca
+    "var _t0=Date.now();"
+    "var _done=false;"
+    "function _ok(){"
+    "if(_done)return false;"
+    "var ar=document.querySelector('app-root');"
+    "return ar&&ar.querySelectorAll('*').length>0&&(Date.now()-_t0)>=3000;}"
+    "function _pronto(){if(_done)return;_done=true;"
+    "clearInterval(_int);clearTimeout(_fb);_obs.disconnect();marcarPronto();}"
+    "var _obs=new MutationObserver(function(){if(_ok())_pronto();});"
+    "_obs.observe(document.body,{childList:true,subtree:true});"
+    "var _int=setInterval(function(){if(_ok())_pronto();},400);"
+    "var _fb=setTimeout(function(){_pronto();},15000);"
     "}else{"
     'setTimeout(function(){'
     "var b=document.getElementById('grex-ir-btn');if(b)b.style.display='block';"
@@ -708,10 +716,12 @@ def grex_login_post():
             return resp
         # Form POST: retorna 200 com JS redirect — iOS Safari armazena o cookie
         # antes de navegar (302 pode não incluir o cookie no redirect imediato)
+        # Apenas meta-refresh (sem JS) — iOS Safari garante processar Set-Cookie
+        # antes de seguir o meta-refresh, ao contrário de location.replace()
         resp = Response(
             '<!DOCTYPE html><html><head><meta charset="UTF-8">'
-            '<meta http-equiv="refresh" content="0;url=/">'
-            '</head><body><script>location.replace("/")</script></body></html>',
+            '<meta http-equiv="refresh" content="0;url=/"></head>'
+            '<body></body></html>',
             content_type='text/html; charset=utf-8'
         )
         resp.set_cookie('grex_session', tok, httponly=True,
