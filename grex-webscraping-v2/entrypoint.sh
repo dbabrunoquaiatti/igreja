@@ -75,7 +75,7 @@ LOGIN_HTML = """<!DOCTYPE html>
 <title>Acesso — Painel</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Lato,sans-serif;background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 50%,#6b46c1 100%);min-height:100vh}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Lato,sans-serif;background:linear-gradient(135deg,#0a1628 0%,#1e3a8a 50%,#2563eb 100%);min-height:100vh}
 .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .logo{text-align:center;margin-bottom:8px}
@@ -85,8 +85,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 .grp{margin-bottom:16px}
 .grp label{display:block;font-size:13px;font-weight:600;color:#2c2c2c;margin-bottom:6px}
 .grp input{width:100%;padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:10px;font-size:16px;color:#2c2c2c;background:#f5f5f5;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
-.grp input:focus{border-color:#6b46c1;background:#fff}
-.btn{width:100%;padding:14px;background:linear-gradient(135deg,#6b46c1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;position:relative;overflow:hidden;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent}
+.grp input:focus{border-color:#2563eb;background:#fff}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;position:relative;overflow:hidden;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent}
 .btn:active{transform:scale(.98);opacity:.9}
 .btn:disabled{opacity:.7;cursor:not-allowed}
 .btn-txt{transition:opacity .2s;display:block}
@@ -102,7 +102,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 </head>
 <body>
 <div class="wrap"><div class="card">
-<div class="logo"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="14" fill="#6b46c1"/><path d="M28 14L38 20V32L28 38L18 32V20L28 14Z" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="28" cy="26" r="5" fill="white"/></svg></div>
+<div class="logo"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="14" fill="#2563eb"/><path d="M28 14L38 20V32L28 38L18 32V20L28 14Z" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="28" cy="26" r="5" fill="white"/></svg></div>
 <div class="title">Painel ADM</div>
 <div class="sub">Entre para continuar</div>
 <div class="err" id="err"></div>

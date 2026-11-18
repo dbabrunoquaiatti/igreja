@@ -90,13 +90,13 @@ GREX_EMAIL, GREX_SENHA = _ler_credenciais()
 # Aparece imediatamente (sem esperar JS/DOMContentLoaded). Só mostra fora de /eventos/check-in.
 LOADING_HTML = (
     '<div id="grex-loading" style="display:none;position:fixed;inset:0;'
-    'z-index:2147483646;background:#0f172a;flex-direction:column;'
+    'z-index:2147483646;background:#0a1628;flex-direction:column;'
     'align-items:center;justify-content:center;gap:28px;">'
     '<style>'
     '@keyframes grex-spin{to{transform:rotate(360deg)}}'
     '@keyframes grex-pulse{0%,100%{opacity:1}50%{opacity:.4}}'
     '.grex-ring{width:72px;height:72px;border-radius:50%;'
-    'border:5px solid rgba(255,255,255,.08);border-top-color:#22c55e;'
+    'border:5px solid rgba(255,255,255,.08);border-top-color:#3b82f6;'
     'animation:grex-spin .9s linear infinite}'
     '.grex-loading-label{color:rgba(255,255,255,.5);font:500 15px/1 sans-serif;'
     'letter-spacing:.08em;animation:grex-pulse 2s ease-in-out infinite}'
@@ -110,13 +110,18 @@ LOADING_HTML = (
     '<button class="grex-ir-btn" id="grex-ir-btn"'
     ' onclick="location.href=\'/eventos/check-in\'">Ir para Check-in</button>'
     '<script>(function(){'
-    "if(location.pathname.includes('/eventos/check-in'))return;"
+    # Só mostra em páginas que fazem parte do fluxo de login (/login, / , /home, etc.)
+    # Nunca na tela de check-in (já chegou) nem em rotas desconhecidas sem o flag
+    "var p=location.pathname;"
+    "var show=(!p.includes('/eventos/check-in'))&&"
+    "(p==='/'||p.includes('/login')||p.includes('/home')||"
+    "sessionStorage.getItem('grex-autologin')==='1');"
+    "if(!show)return;"
+    "sessionStorage.setItem('grex-autologin','1');"
     "document.getElementById('grex-loading').style.display='flex';"
-    # Mostra botão após 15 s
     'setTimeout(function(){'
     "var b=document.getElementById('grex-ir-btn');if(b)b.style.display='block';"
     '},15000);'
-    # Navega automaticamente após 25 s
     'setTimeout(function(){'
     "if(!location.pathname.includes('/eventos/check-in'))"
     "location.href='/eventos/check-in';"
@@ -486,7 +491,7 @@ _LOADING_COVER_CSS = (
     "<style id='grex-cover'>"
     # Fora da página de check-in: esconde o conteúdo da app enquanto carrega
     "body:not(.grex-pronto)>app-root{opacity:0!important;pointer-events:none!important}"
-    "body:not(.grex-pronto){background:#0f172a!important}"
+    "body:not(.grex-pronto){background:#0a1628!important}"
     "</style>"
     "<script>"
     "if(location.pathname.includes('/eventos/check-in')){"
@@ -507,7 +512,15 @@ STRIP_RESPONSE = {
     'content-encoding', 'content-length', 'transfer-encoding', 'connection',
     'content-security-policy', 'content-security-policy-report-only',
     'x-frame-options', 'strict-transport-security',
+    'cache-control', 'pragma', 'expires', 'etag', 'last-modified',
 }
+
+@app.after_request
+def _no_cache(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 def _rewrite_set_cookie(val):
@@ -585,7 +598,7 @@ _LOGIN_HTML = """<!DOCTYPE html>
 <title>Acesso — Check-in</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Lato,sans-serif;background:linear-gradient(135deg,#1e1b4b 0%,#3730a3 50%,#6b46c1 100%);min-height:100vh}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Lato,sans-serif;background:linear-gradient(135deg,#0a1628 0%,#1e3a8a 50%,#2563eb 100%);min-height:100vh}
 .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
 .logo{text-align:center;margin-bottom:8px}
@@ -595,8 +608,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 .grp{margin-bottom:16px}
 .grp label{display:block;font-size:13px;font-weight:600;color:#2c2c2c;margin-bottom:6px}
 .grp input{width:100%;padding:12px 14px;border:1.5px solid #e8e8e8;border-radius:10px;font-size:16px;color:#2c2c2c;background:#f5f5f5;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none}
-.grp input:focus{border-color:#6b46c1;background:#fff}
-.btn{width:100%;padding:14px;background:linear-gradient(135deg,#6b46c1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;position:relative;overflow:hidden;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent}
+.grp input:focus{border-color:#2563eb;background:#fff}
+.btn{width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;position:relative;overflow:hidden;transition:opacity .2s,transform .1s;-webkit-tap-highlight-color:transparent}
 .btn:active{transform:scale(.98);opacity:.9}
 .btn:disabled{opacity:.7;cursor:not-allowed}
 .btn-txt{transition:opacity .2s;display:block}
@@ -612,7 +625,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 </head>
 <body>
 <div class="wrap"><div class="card">
-<div class="logo"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="14" fill="#6b46c1"/><path d="M28 14L38 20V32L28 38L18 32V20L28 14Z" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="28" cy="26" r="5" fill="white"/></svg></div>
+<div class="logo"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="56" height="56" rx="14" fill="#2563eb"/><path d="M28 14L38 20V32L28 38L18 32V20L28 14Z" stroke="white" stroke-width="2.5" stroke-linejoin="round"/><circle cx="28" cy="26" r="5" fill="white"/></svg></div>
 <div class="title">Check-in Grex</div>
 <div class="sub">Entre para continuar</div>
 <div class="err" id="err"></div>
