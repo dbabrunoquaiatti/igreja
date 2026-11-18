@@ -112,22 +112,30 @@ LOADING_HTML = (
     '<button class="grex-ir-btn" id="grex-ir-btn"'
     ' onclick="location.href=\'/eventos/check-in\'">Ir para Check-in</button>'
     '<script>(function(){'
-    # Só mostra em páginas que fazem parte do fluxo de login (/login, / , /home, etc.)
-    # Nunca na tela de check-in (já chegou) nem em rotas desconhecidas sem o flag
     "var p=location.pathname;"
-    "var show=(!p.includes('/eventos/check-in'))&&"
-    "(p==='/'||p.includes('/login')||p.includes('/home')||"
+    "var isCheckin=p.includes('/eventos/check-in');"
+    "var show=isCheckin||(p==='/'||p.includes('/login')||p.includes('/home')||"
     "sessionStorage.getItem('grex-autologin')==='1');"
     "if(!show)return;"
-    "sessionStorage.setItem('grex-autologin','1');"
+    "if(!isCheckin)sessionStorage.setItem('grex-autologin','1');"
     "document.getElementById('grex-loading').style.display='flex';"
+    "function marcarPronto(){"
+    "var el=document.getElementById('grex-loading');if(el)el.style.display='none';"
+    "document.body.classList.add('grex-pronto');}"
+    "if(isCheckin){"
+    "function checar(){var ar=document.querySelector('app-root');return ar&&ar.children.length>0;}"
+    "if(checar()){marcarPronto();return;}"
+    "var obs=new MutationObserver(function(){"
+    "if(checar()){obs.disconnect();clearTimeout(fb);marcarPronto();}});"
+    "obs.observe(document.body,{childList:true,subtree:true});"
+    "var fb=setTimeout(function(){obs.disconnect();marcarPronto();},10000);"
+    "}else{"
     'setTimeout(function(){'
     "var b=document.getElementById('grex-ir-btn');if(b)b.style.display='block';"
     '},15000);'
     'setTimeout(function(){'
-    "if(!location.pathname.includes('/eventos/check-in'))"
-    "location.href='/eventos/check-in';"
-    '},25000);'
+    "if(!location.pathname.includes('/eventos/check-in'))location.href='/eventos/check-in';"
+    '},25000);}'
     '})()</script>'
     '</div>'
 )
@@ -379,18 +387,24 @@ SCRIPT_AUTOLOGIN = r"""
       location.href = '/eventos/check-in';
   }
 
+  // Fecha popup de briefing em qualquer página (inclusive /eventos/check-in)
+  var _briefingClosed = false;
+  new MutationObserver(function() {
+    if (_briefingClosed) return;
+    var closeBtn = document.querySelector('.greg-briefing__close') ||
+                   document.querySelector('[class*="briefing"] [class*="close"]') ||
+                   document.querySelector('[class*="briefing"] mat-icon');
+    if (closeBtn && closeBtn.offsetParent !== null) {
+      _briefingClosed = true;
+      closeBtn.click();
+      if (!location.pathname.includes('/eventos/check-in'))
+        setTimeout(irParaCheckin, 3000);
+    }
+  }).observe(document.body, {childList: true, subtree: true});
+
   if (location.pathname.includes('/eventos/check-in')) return;
 
   let navegacaoPendente = false;
-
-  new MutationObserver(() => {
-    const btn = document.querySelector('.greg-briefing__close > mat-icon:nth-child(1)');
-    if (btn && btn.offsetParent !== null && !navegacaoPendente) {
-      navegacaoPendente = true;
-      btn.click();
-      setTimeout(irParaCheckin, 3000);
-    }
-  }).observe(document.body, {childList: true, subtree: true});
 
   function visivel(el) {
     return el && el.offsetParent !== null && getComputedStyle(el).display !== 'none';
@@ -491,19 +505,9 @@ SCRIPT_AUTOLOGIN = r"""
 BODY_INJECTION = f"<script>{SCRIPT_CSS}\n{SCRIPT_SONS}\n{SCRIPT_AUTOLOGIN}</script>"
 _LOADING_COVER_CSS = (
     "<style id='grex-cover'>"
-    # Fora da página de check-in: esconde o conteúdo da app enquanto carrega
     "body:not(.grex-pronto)>app-root{opacity:0!important;pointer-events:none!important}"
     "body:not(.grex-pronto){background:#0a1628!important}"
     "</style>"
-    "<script>"
-    "if(location.pathname.includes('/eventos/check-in')){"
-    "document.write('<style>body{background:initial!important}</style>');"
-    "function _gp(){document.body&&document.body.classList.add('grex-pronto');}"
-    "if(document.readyState==='loading'){"
-    "document.addEventListener('DOMContentLoaded',_gp);"
-    "}else{_gp();}"
-    "}"
-    "</script>"
 )
 HEAD_INJECTION = f"{_LOADING_COVER_CSS}<script>{SCRIPT_FIREBASE_PROXY}</script>"
 
@@ -625,6 +629,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 .err{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;display:none}
 @keyframes fadein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .err.show{display:block;animation:fadein .3s ease}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:44px}
+.pw-eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#999;padding:4px;-webkit-tap-highlight-color:transparent;line-height:0}
+.pw-eye:hover{color:#555}
+.pw-eye svg{display:block;width:20px;height:20px}
 </style>
 </head>
 <body>
@@ -635,7 +644,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 <div class="err" id="err"></div>
 <form id="frm" method="POST" action="/grex-login" autocomplete="on">
 <div class="grp"><label for="u">E-mail</label><input type="email" id="u" name="user" autocomplete="username" inputmode="email" placeholder="seu@email.com" required></div>
-<div class="grp"><label for="p">Senha</label><input type="password" id="p" name="pass" autocomplete="current-password" placeholder="••••••••" required></div>
+<div class="grp"><label for="p">Senha</label><div class="pw-wrap"><input type="password" id="p" name="pass" autocomplete="current-password" placeholder="••••••••" required><button type="button" class="pw-eye" id="pw-eye" aria-label="Mostrar senha"><svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div></div>
 <button type="submit" class="btn" id="btn"><span class="btn-txt">Entrar</span><span class="btn-spin"><span class="ring"></span></span></button>
 </form>
 </div></div>
@@ -644,13 +653,17 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',La
 var frm=document.getElementById('frm'),btn=document.getElementById('btn'),errEl=document.getElementById('err');
 function showErr(m){errEl.textContent=m;errEl.classList.add('show');}
 function setLoad(on){btn.disabled=on;btn.classList.toggle('loading',on);}
-var p=new URLSearchParams(location.search);
-if(p.get('err'))showErr(decodeURIComponent(p.get('err')));
-frm.addEventListener('submit',function(e){
-  var u=document.getElementById('u').value.trim();
-  var pw=document.getElementById('p').value;
-  if(!u||!pw){e.preventDefault();showErr('Preencha e-mail e senha.');return;}
-  setLoad(true);
+var qs=new URLSearchParams(location.search);
+if(qs.get('err'))showErr(decodeURIComponent(qs.get('err')));
+// Autofill: não valida via JS (browser/servidor cuida); apenas mostra loading
+frm.addEventListener('submit',function(){setLoad(true);});
+// Toggle ver senha
+document.getElementById('pw-eye').addEventListener('click',function(){
+  var inp=document.getElementById('p');
+  var show=inp.type==='password';
+  inp.type=show?'text':'password';
+  this.querySelector('.eye-off').style.display=show?'none':'';
+  this.querySelector('.eye-on').style.display=show?'':'none';
 });
 })();
 </script>
@@ -690,8 +703,17 @@ def grex_login_post():
         _sessions[tok] = {'ts': time.time(), 'email': user, 'senha': pwd}
         if is_json:
             resp = Response(json.dumps({'ok': True}), content_type='application/json')
-        else:
-            resp = redirect('/')
+            resp.set_cookie('grex_session', tok, httponly=True,
+                            samesite='Lax', path='/', secure=True)
+            return resp
+        # Form POST: retorna 200 com JS redirect — iOS Safari armazena o cookie
+        # antes de navegar (302 pode não incluir o cookie no redirect imediato)
+        resp = Response(
+            '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+            '<meta http-equiv="refresh" content="0;url=/">'
+            '</head><body><script>location.replace("/")</script></body></html>',
+            content_type='text/html; charset=utf-8'
+        )
         resp.set_cookie('grex_session', tok, httponly=True,
                         samesite='Lax', path='/', secure=True)
         return resp
