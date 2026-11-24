@@ -3757,7 +3757,10 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         function _pedirSenha(callback) {
             const pwd = window.CONFIG && window.CONFIG.PWDQRCODESEND;
-            if (!pwd) { callback(); return; } // sem senha configurada → passa direto
+            if (!pwd) {
+                document.getElementById('adminOverlay').classList.add('show');
+                return;
+            }
             _pwdCallback = callback;
             const input = document.getElementById('pwdInput');
             input.value = '';
