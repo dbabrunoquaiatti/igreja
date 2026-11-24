@@ -1450,6 +1450,87 @@
             transition: all 0.2s ease;
         }
         .nav-subitem:hover { background: var(--gray-border); color: var(--purple-primary); }
+        /* Modal de senha para envio QR */
+        .pwd-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .pwd-overlay.show { opacity: 1; pointer-events: all; }
+        .pwd-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px 28px 24px;
+            width: min(320px, 90vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            position: relative;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .pwd-overlay.show .pwd-modal { transform: scale(1) translateY(0); }
+        .pwd-modal-icon { font-size: 32px; text-align: center; }
+        .pwd-modal-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+        }
+        .pwd-modal-sub {
+            font-size: 13px;
+            color: var(--text-light);
+            text-align: center;
+            margin-top: -8px;
+        }
+        .pwd-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-border);
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: 'Lato', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        .pwd-input:focus { border-color: var(--purple-primary); }
+        .pwd-input.erro { border-color: #dc2626; animation: shake 0.3s ease; }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .pwd-erro {
+            font-size: 12px;
+            color: #dc2626;
+            text-align: center;
+            min-height: 16px;
+            margin-top: -6px;
+        }
+        .pwd-confirmar-btn {
+            width: 100%;
+            padding: 13px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--purple-primary);
+            color: white;
+            transition: all 0.2s ease;
+        }
+        .pwd-confirmar-btn:hover { background: var(--purple-light); transform: translateY(-1px); }
         /* QR send button inline na tabela */
         .qr-send-btn {
             background: #16a34a;
@@ -1822,6 +1903,18 @@
                     Excel
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div class="pwd-overlay" id="pwdOverlay">
+        <div class="pwd-modal">
+            <button class="grex-modal-close" id="pwdClose">✕</button>
+            <div class="pwd-modal-icon">🔒</div>
+            <div class="pwd-modal-title">Confirmar Envio</div>
+            <div class="pwd-modal-sub">Digite a senha para continuar</div>
+            <input type="password" id="pwdInput" class="pwd-input" placeholder="Senha" autocomplete="off">
+            <div class="pwd-erro" id="pwdErro"></div>
+            <button class="pwd-confirmar-btn" id="pwdConfirmar">Confirmar</button>
         </div>
     </div>
 
@@ -3650,8 +3743,55 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         });
 
         // ---- Envio de QR Codes ----
-        let _envioPoller = null;
-        let _enviandoAtivo = false; // bloqueia fechar modal durante envio
+        let _envioPoller   = null;
+        let _enviandoAtivo = false;
+        let _pwdCallback   = null;
+
+        function _pedirSenha(callback) {
+            const pwd = window.CONFIG && window.CONFIG.PWDQRCODESEND;
+            if (!pwd) { callback(); return; } // sem senha configurada → passa direto
+            _pwdCallback = callback;
+            const input = document.getElementById('pwdInput');
+            input.value = '';
+            input.classList.remove('erro');
+            document.getElementById('pwdErro').textContent = '';
+            document.getElementById('pwdOverlay').classList.add('show');
+            setTimeout(() => input.focus(), 120);
+        }
+
+        function _confirmarSenha() {
+            const pwd = window.CONFIG && window.CONFIG.PWDQRCODESEND;
+            const digitada = document.getElementById('pwdInput').value;
+            if (digitada === pwd) {
+                document.getElementById('pwdOverlay').classList.remove('show');
+                const cb = _pwdCallback;
+                _pwdCallback = null;
+                if (cb) cb();
+            } else {
+                const input = document.getElementById('pwdInput');
+                input.classList.add('erro');
+                document.getElementById('pwdErro').textContent = 'Senha incorreta';
+                input.select();
+                setTimeout(() => input.classList.remove('erro'), 400);
+            }
+        }
+
+        (function() {
+            document.getElementById('pwdConfirmar').addEventListener('click', _confirmarSenha);
+            document.getElementById('pwdInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') _confirmarSenha();
+            });
+            document.getElementById('pwdClose').addEventListener('click', function() {
+                document.getElementById('pwdOverlay').classList.remove('show');
+                _pwdCallback = null;
+            });
+            document.getElementById('pwdOverlay').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                    _pwdCallback = null;
+                }
+            });
+        })();
 
         function _abrirModalEnviando(titulo, infoInicial) {
             document.getElementById('envioPercent').textContent = '0%';
@@ -3668,6 +3808,10 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         async function enviarQrcodeIndividual(btn, nome) {
             if (btn.classList.contains('enviando')) return;
+            _pedirSenha(function() { _executarEnvioIndividual(btn, nome); });
+        }
+
+        async function _executarEnvioIndividual(btn, nome) {
             btn.classList.add('enviando');
             btn.textContent = '⏳';
 
@@ -3870,7 +4014,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             });
             document.getElementById('grexLinkEnvioQrcode').addEventListener('click', function() {
                 document.getElementById('grexOverlay').classList.remove('show');
-                abrirEnvioQrcodeModal();
+                _pedirSenha(abrirEnvioQrcodeModal);
             });
         })();
         // ---- Fim Envio QR Codes ----

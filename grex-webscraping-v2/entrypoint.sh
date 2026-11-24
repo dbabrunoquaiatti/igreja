@@ -35,6 +35,7 @@ config = [
     ('GREX_EVENTO_URL',         v('GREX_EVENTO_URL')),
     ('GREX_AUTOMACAO_CHECKING', v('GREX_AUTOMACAO_CHECKING')),
     ('FINANCEIRO_URL',          v('FINANCEIRO_URL')),
+    ('PWDQRCODESEND',           v('PWDQRCODESEND')),
 ]
 
 lines = ['window.CONFIG = {']
