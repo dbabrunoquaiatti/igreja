@@ -1846,8 +1846,8 @@
                 pastoraRede: findValue(row, overrides.pastoraRede, 'Pastora de Rede', 'pastoraRede', 'pastora') || '',
                 lider: findValue(row, overrides.lider, 'Líder', 'lider', 'leader') || 'Não',
                 tipoInscricao: findValue(row, overrides.tipoInscricao, 'TipoInscrição', 'Tipo Inscrição', 'Tipo de Inscrição', 'tipoInscricao', 'subscription type') || '',
-                nomeFamiliar: findValue(row, overrides.nomeFamiliar, 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
-                telefoneFamiliar: findValue(row, overrides.telefoneFamiliar, 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
+                nomeFamiliar: findValue(row, overrides.nomeFamiliar || (window.CONFIG.NOME_FAMILIAR_COL || null), 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
+                telefoneFamiliar: findValue(row, overrides.telefoneFamiliar || (window.CONFIG.TEL_FAMILIAR_COL || null), 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
                 statusPagamento: findValue(row, overrides.statusPagamento, 'StatusPagamento', 'Status Pagamento', 'statusPagamento', 'payment status') || 'Pending',
                 formaPagamento: findValue(row, overrides.formaPagamento, 'FormaPagamento', 'Forma Pagamento', 'formaPagamento', 'payment method') || '',
                 presenca: findValue(row, overrides.presenca, 'Presença', 'presenca', 'Presença', 'presence', 'attendance') || '',
@@ -2050,7 +2050,7 @@
 
         function buildChaveDuplicado(item) {
             const ignorar = new Set(
-                (window.CONFIG.DUPLICADO_IGNORAR || 'formaPagamento,presenca,dataInscricao')
+                (window.CONFIG.DUPLICADO_IGNORAR || 'formaPagamento,presenca,dataInscricao,statusPagamento')
                     .split(',').map(s => s.trim()).filter(Boolean)
             );
             const campos = ['nome','idade','email','cpf','celular','discipulador','pastoraRede','lider','tipoInscricao','nomeFamiliar','telefoneFamiliar','statusPagamento','formaPagamento','presenca','dataInscricao'];
