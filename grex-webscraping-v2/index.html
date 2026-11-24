@@ -1828,7 +1828,7 @@
     <div class="envio-overlay" id="envioOverlay">
         <div class="envio-modal">
             <button class="grex-modal-close" id="envioModalClose">✕</button>
-            <div class="envio-modal-title">📨 Envio de QR Codes</div>
+            <div class="envio-modal-title">✉ Envio de QR Codes</div>
             <div class="envio-percent" id="envioPercent">0%</div>
             <div class="envio-progress-wrap">
                 <div class="envio-progress-bar" id="envioProgressBar"></div>
@@ -2999,14 +2999,13 @@
                     </a>
                 </div>`;
 
-                const nomeEscapado = JSON.stringify(item.nome);
                 return `<tr>
                     <td>${esc(item.nome)}</td><td>${esc(item.idade)}</td><td>${celularComWhats}</td>
                     <td>${esc(item.discipulador)}</td><td>${esc(item.lider)}</td><td>${esc(item.tipoInscricao)}</td>
                     <td>${statusBadge}</td>
                     <td>${esc(metodoTraduzido)}</td><td>${presencaBadge}</td><td>${esc(dataFormatada)}</td>
                     <td>${isDuplicado ? '<span class="duplicado-badge">Sim</span>' : '-'}</td>
-                    <td><button class="qr-send-btn" onclick="enviarQrcodeIndividual(this,${nomeEscapado})">📨</button></td>
+                    <td><button class="qr-send-btn" data-nome="${esc(item.nome)}" onclick="enviarQrcodeIndividual(this,this.dataset.nome)">✉</button></td>
                 </tr>`;
             }).join('');
             renderizarResumoDados();
