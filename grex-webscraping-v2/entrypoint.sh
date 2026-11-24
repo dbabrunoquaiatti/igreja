@@ -154,10 +154,10 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
     def _serve_pagos_total(self):
         total, err = _calcular_pagos_total()
         if err:
-            body = ('erro: ' + err + '\n').encode('utf-8')
+            body = ('0').encode('utf-8')
             self.send_response(500)
         else:
-            body = (str(total) + '\n').encode('utf-8')
+            body = str(total).encode('utf-8')
             self.send_response(200)
         self.send_header('Content-Type', 'text/csv; charset=utf-8')
         self.send_header('Content-Length', len(body))
