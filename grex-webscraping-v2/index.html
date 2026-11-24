@@ -1546,6 +1546,8 @@
         }
         .qr-send-btn:hover { background: #15803d; transform: translateY(-1px); }
         .qr-send-btn.enviando { background: #3b82f6 !important; cursor: default; transform: none; }
+        .qr-send-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; transform: none; box-shadow: none; }
+        .qr-send-btn:disabled:hover { background: #e5e7eb; transform: none; }
         /* Estilo do botão ENVIO QRCODE no modal GREX */
         .grex-modal-link-envio { background: #16a34a !important; }
         .grex-modal-link-envio:hover { background: #15803d !important; box-shadow: 0 4px 14px rgba(22,163,74,0.35) !important; }
@@ -3092,13 +3094,19 @@
                     </a>
                 </div>`;
 
+                const isAprovado = statusLower === 'paid' || statusLower === 'approved'
+                                || statusLower === 'confirmado' || statusLower === 'confirm';
+                const qrBtn = isAprovado
+                    ? `<button class="qr-send-btn" data-nome="${esc(item.nome)}" onclick="enviarQrcodeIndividual(this,this.dataset.nome)" title="Enviar QR Code">✉</button>`
+                    : `<button class="qr-send-btn" disabled title="Pagamento não aprovado">✉</button>`;
+
                 return `<tr>
                     <td>${esc(item.nome)}</td><td>${esc(item.idade)}</td><td>${celularComWhats}</td>
                     <td>${esc(item.discipulador)}</td><td>${esc(item.lider)}</td><td>${esc(item.tipoInscricao)}</td>
                     <td>${statusBadge}</td>
                     <td>${esc(metodoTraduzido)}</td><td>${presencaBadge}</td><td>${esc(dataFormatada)}</td>
                     <td>${isDuplicado ? '<span class="duplicado-badge">Sim</span>' : '-'}</td>
-                    <td><button class="qr-send-btn" data-nome="${esc(item.nome)}" onclick="enviarQrcodeIndividual(this,this.dataset.nome)">✉</button></td>
+                    <td>${qrBtn}</td>
                 </tr>`;
             }).join('');
             renderizarResumoDados();
