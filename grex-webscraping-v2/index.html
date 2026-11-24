@@ -2937,6 +2937,8 @@
                     '<td><strong>' + esc(item.nome) + '</strong></td>' +
                     '<td>' + esc(item.idade) + '</td>' +
                     '<td>' + esc(item.celular) + '</td>' +
+                    '<td>' + esc(item.nomeFamiliar) + '</td>' +
+                    '<td>' + esc(item.telefoneFamiliar) + '</td>' +
                     '<td>' + esc(item.discipulador) + '</td>' +
                     '<td>' + esc(item.lider) + '</td>' +
                     '<td><span class="badge ' + esc(st.cls) + '">' + esc(st.label) + '</span></td>' +
@@ -2952,6 +2954,7 @@ thead tr{background:#6b46c1;color:white}</style></head><body>
 <h1>Lista de Convidados — Encontro</h1>
 <div class="subtitle">Total: ${convidados.length} convidados &middot; Gerado em ${new Date().toLocaleString('pt-BR')}</div>
 <table><thead><tr><th>#</th><th>Nome</th><th>Idade</th><th>Celular</th>
+<th>Nome do Familiar</th><th>Telefone do Familiar</th>
 <th>Discipulador</th><th>Líder</th><th>Status Pagamento</th>
 <th>Presente</th><th>Inscrito Em</th></tr></thead>
 <tbody>${linhas}</tbody></table>
