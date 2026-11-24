@@ -52,11 +52,85 @@ PYEOF
 
 echo "✅ config.js gerado!"
 
+echo "📦 Garantindo openpyxl instalado..."
+pip3 install openpyxl --quiet 2>/dev/null || true
+
 echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
-import http.server, os
+import http.server, os, re
+
+def _calcular_pagos_total():
+    try:
+        import openpyxl
+    except ImportError:
+        return None, 'openpyxl nao instalado'
+
+    STATUS_VARIANTS = [
+        'statusdopagamento', 'statuspagamento', 'statuspgto',
+        'paymentstatus', 'status'
+    ]
+    PAID = {'paid', 'approved', 'aprovado', 'confirmado', 'confirm', 'pago', 'concluido', 'concluído'}
+
+    def norm(s):
+        return re.sub(r'\s+', '', str(s or '')).lower()
+
+    def find_col(headers):
+        h = {norm(h): i for i, h in enumerate(headers)}
+        for v in STATUS_VARIANTS:
+            if v in h:
+                return h[v]
+        return None
+
+    total = 0
+    for fname in ('encontro.xlsx', 'encontro2.xlsx'):
+        path = os.path.join('/app/data', fname)
+        if not os.path.exists(path):
+            continue
+        try:
+            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+            ws = wb.active
+            it = ws.iter_rows(values_only=True)
+            headers = next(it, None)
+            if not headers:
+                wb.close(); continue
+            col = find_col(headers)
+            if col is None:
+                wb.close(); continue
+            for row in it:
+                val = norm(row[col] if col < len(row) else '')
+                if val in PAID:
+                    total += 1
+            wb.close()
+        except Exception:
+            pass
+
+    pagar_depois = (
+        int(os.environ.get('PAGAR_DEPOIS_SERVOS', 0) or 0) +
+        int(os.environ.get('PAGAR_DEPOIS_CONVIDADOS', 0) or 0)
+    )
+    return max(0, total - pagar_depois), None
 
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/pagos-total':
+            self._serve_pagos_total()
+        else:
+            super().do_GET()
+
+    def _serve_pagos_total(self):
+        total, err = _calcular_pagos_total()
+        if err:
+            body = ('erro: ' + err).encode('utf-8')
+            self.send_response(500)
+        else:
+            body = str(total).encode('utf-8')
+            self.send_response(200)
+        self.send_header('Content-Type', 'text/plain; charset=utf-8')
+        self.send_header('Content-Length', len(body))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(body)
+
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         self.send_header('Pragma', 'no-cache')
