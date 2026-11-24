@@ -127,10 +127,12 @@ def _enviar_linha(driver, linha_el):
     wait = WebDriverWait(driver, 10)
     trigger = linha_el.find_element(By.CSS_SELECTOR, "button.mat-mdc-menu-trigger")
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", trigger)
-    trigger.click()
+    time.sleep(0.3)
+    # JS click evita o "element click intercepted" do Angular CDK overlay
+    driver.execute_script("arguments[0].click();", trigger)
     botao = wait.until(EC.element_to_be_clickable(
         (By.CSS_SELECTOR, "div[id^='mat-menu-panel'] > div > button:nth-of-type(5)")))
-    botao.click()
+    driver.execute_script("arguments[0].click();", botao)
     try:
         WebDriverWait(driver, 5).until(EC.invisibility_of_element_located(
             (By.CSS_SELECTOR, "div[id^='mat-menu-panel']")))

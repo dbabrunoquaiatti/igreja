@@ -1464,7 +1464,7 @@
             white-space: nowrap;
         }
         .qr-send-btn:hover { background: #15803d; transform: translateY(-1px); }
-        .qr-send-btn.enviando { background: #6b7280 !important; cursor: not-allowed; transform: none; }
+        .qr-send-btn.enviando { background: #3b82f6 !important; cursor: default; transform: none; }
         /* Estilo do botão ENVIO QRCODE no modal GREX */
         .grex-modal-link-envio { background: #16a34a !important; }
         .grex-modal-link-envio:hover { background: #15803d !important; box-shadow: 0 4px 14px rgba(22,163,74,0.35) !important; }
@@ -1556,7 +1556,7 @@
             text-align: center;
         }
         .envio-acao-btn:hover { background: #15803d; transform: translateY(-1px); }
-        .envio-acao-btn:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+        .envio-acao-btn:disabled { background: #3b82f6; cursor: default; transform: none; }
     </style>
 </head>
 <body>
@@ -3651,12 +3651,28 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         // ---- Envio de QR Codes ----
         let _envioPoller = null;
+        let _enviandoAtivo = false; // bloqueia fechar modal durante envio
+
+        function _abrirModalEnviando(titulo, infoInicial) {
+            document.getElementById('envioPercent').textContent = '0%';
+            document.getElementById('envioProgressBar').style.width = '0%';
+            document.getElementById('envioInfo').textContent = infoInicial;
+            document.getElementById('envioCurrent').textContent = '';
+            const btn = document.getElementById('envioIniciarBtn');
+            btn.disabled = true;
+            btn.textContent = 'Enviando…';
+            document.querySelector('.envio-modal-title').textContent = titulo;
+            document.getElementById('envioOverlay').classList.add('show');
+            _enviandoAtivo = true;
+        }
 
         async function enviarQrcodeIndividual(btn, nome) {
             if (btn.classList.contains('enviando')) return;
             btn.classList.add('enviando');
-            const originalText = btn.textContent;
             btn.textContent = '⏳';
+
+            _abrirModalEnviando('✉ Enviando QR Code', '⏳ Iniciando envio para ' + nome + '…');
+
             try {
                 const resp = await fetch('/enviar-qrcode', {
                     method: 'POST',
@@ -3666,29 +3682,41 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 if (resp.status === 409) {
                     mostrarToast('Aguarde — outro envio em andamento', 'error');
                     btn.classList.remove('enviando');
-                    btn.textContent = originalText;
+                    btn.textContent = '✉';
+                    _fecharModalEnvio();
                     return;
                 }
                 if (!resp.ok) throw new Error('Servidor indisponível');
-                mostrarToast('Enviando QR para ' + nome + '…');
+
                 _iniciarPollingQrcode(function(data) {
                     if (data.concluido) {
+                        _enviandoAtivo = false;
                         btn.classList.remove('enviando');
                         if (data.status === 'concluido' && data.enviados > 0) {
                             btn.textContent = '✅';
-                            setTimeout(() => { btn.textContent = '📨'; }, 3000);
+                            setTimeout(() => { btn.textContent = '✉'; }, 3000);
                         } else {
                             btn.textContent = '❌';
-                            setTimeout(() => { btn.textContent = '📨'; }, 3000);
-                            mostrarToast(data.erro || 'Não encontrado', 'error');
+                            setTimeout(() => { btn.textContent = '✉'; }, 3000);
                         }
+                        const modalBtn = document.getElementById('envioIniciarBtn');
+                        modalBtn.disabled = false;
+                        modalBtn.textContent = 'Fechar';
                     }
                 });
             } catch(e) {
                 mostrarToast('Erro: ' + e.message, 'error');
                 btn.classList.remove('enviando');
-                btn.textContent = originalText;
+                btn.textContent = '✉';
+                _fecharModalEnvio();
             }
+        }
+
+        function _fecharModalEnvio() {
+            _enviandoAtivo = false;
+            document.getElementById('envioOverlay').classList.remove('show');
+            clearInterval(_envioPoller);
+            _envioPoller = null;
         }
 
         function abrirEnvioQrcodeModal() {
@@ -3696,6 +3724,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             document.getElementById('envioProgressBar').style.width = '0%';
             document.getElementById('envioInfo').textContent = 'Pronto para iniciar o envio';
             document.getElementById('envioCurrent').textContent = '';
+            document.querySelector('.envio-modal-title').textContent = '✉ Envio de QR Codes';
             const btn = document.getElementById('envioIniciarBtn');
             btn.disabled = false;
             btn.textContent = 'Iniciar Envio';
@@ -3713,6 +3742,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     const btn = document.getElementById('envioIniciarBtn');
                     btn.disabled = true;
                     btn.textContent = 'Enviando…';
+                    _enviandoAtivo = true;
                     _iniciarPollingQrcode(null);
                 } else if (data.status && data.status !== 'idle') {
                     _atualizarEnvioModal(data);
@@ -3724,6 +3754,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             const btn = document.getElementById('envioIniciarBtn');
             btn.disabled = true;
             btn.textContent = 'Enviando…';
+            _enviandoAtivo = true;
             try {
                 const resp = await fetch('/enviar-qrcode', {
                     method: 'POST',
@@ -3734,6 +3765,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     mostrarToast('Envio já em andamento', 'error');
                     btn.disabled = false;
                     btn.textContent = 'Iniciar Envio';
+                    _enviandoAtivo = false;
                     _iniciarPollingQrcode(null);
                     return;
                 }
@@ -3743,6 +3775,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 mostrarToast('Erro: ' + e.message, 'error');
                 btn.disabled = false;
                 btn.textContent = 'Iniciar Envio';
+                _enviandoAtivo = false;
             }
         }
 
@@ -3756,10 +3789,11 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     _atualizarEnvioModal(data);
                     if (callback) callback(data);
                     if (data.concluido) {
+                        _enviandoAtivo = false;
                         clearInterval(_envioPoller);
                         _envioPoller = null;
                         const btn = document.getElementById('envioIniciarBtn');
-                        if (btn) {
+                        if (btn && !callback) { // só atualiza se for o fluxo "todos"
                             btn.disabled = false;
                             btn.textContent = data.status === 'erro' ? 'Tentar Novamente' : 'Concluído ✓';
                         }
@@ -3769,8 +3803,6 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         }
 
         function _atualizarEnvioModal(data) {
-            const overlay = document.getElementById('envioOverlay');
-            if (!overlay) return;
             const pct = data.total > 0 ? Math.round((data.enviados / data.total) * 100) : 0;
             document.getElementById('envioProgressBar').style.width = pct + '%';
             document.getElementById('envioPercent').textContent = pct + '%';
@@ -3792,18 +3824,17 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         }
 
         (function() {
-            document.getElementById('envioIniciarBtn').addEventListener('click', iniciarEnvioQrcodeTodos);
+            document.getElementById('envioIniciarBtn').addEventListener('click', function() {
+                // "Fechar" é exibido após envio individual concluído
+                if (this.textContent === 'Fechar') { _fecharModalEnvio(); return; }
+                iniciarEnvioQrcodeTodos();
+            });
             document.getElementById('envioModalClose').addEventListener('click', function() {
-                document.getElementById('envioOverlay').classList.remove('show');
-                clearInterval(_envioPoller);
-                _envioPoller = null;
+                if (_enviandoAtivo) return; // bloqueia fechar durante envio
+                _fecharModalEnvio();
             });
             document.getElementById('envioOverlay').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('show');
-                    clearInterval(_envioPoller);
-                    _envioPoller = null;
-                }
+                if (e.target === this && !_enviandoAtivo) _fecharModalEnvio();
             });
             document.getElementById('grexLinkEnvioQrcode').addEventListener('click', function() {
                 document.getElementById('grexOverlay').classList.remove('show');
