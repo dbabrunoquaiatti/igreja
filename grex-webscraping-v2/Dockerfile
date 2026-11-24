@@ -52,6 +52,7 @@ RUN pip install -r requirements.txt
 
 # Copiar scripts
 COPY webscraping_grex.py .
+COPY enviar_qrcode.py .
 
 # Criar pasta data (os xlsx são gerados em runtime pelo script)
 RUN mkdir -p /app/data

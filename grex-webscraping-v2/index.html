@@ -1450,6 +1450,113 @@
             transition: all 0.2s ease;
         }
         .nav-subitem:hover { background: var(--gray-border); color: var(--purple-primary); }
+        /* QR send button inline na tabela */
+        .qr-send-btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .qr-send-btn:hover { background: #15803d; transform: translateY(-1px); }
+        .qr-send-btn.enviando { background: #6b7280 !important; cursor: not-allowed; transform: none; }
+        /* Estilo do botão ENVIO QRCODE no modal GREX */
+        .grex-modal-link-envio { background: #16a34a !important; }
+        .grex-modal-link-envio:hover { background: #15803d !important; box-shadow: 0 4px 14px rgba(22,163,74,0.35) !important; }
+        /* Modal de progresso de envio */
+        .envio-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .envio-overlay.show { opacity: 1; pointer-events: all; }
+        .envio-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px 28px 28px;
+            width: min(380px, 92vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            position: relative;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .envio-overlay.show .envio-modal { transform: scale(1) translateY(0); }
+        .envio-modal-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text-dark);
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .envio-percent {
+            font-family: 'Poppins', sans-serif;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--purple-primary);
+            text-align: center;
+            line-height: 1;
+        }
+        .envio-progress-wrap {
+            background: var(--gray-border);
+            border-radius: 100px;
+            height: 10px;
+            overflow: hidden;
+        }
+        .envio-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--purple-primary), var(--purple-light));
+            border-radius: 100px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+        .envio-info {
+            font-size: 13px;
+            color: var(--text-light);
+            text-align: center;
+            font-weight: 500;
+        }
+        .envio-current {
+            font-size: 12px;
+            color: var(--text-lighter);
+            text-align: center;
+            min-height: 16px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .envio-acao-btn {
+            width: 100%;
+            padding: 13px 20px;
+            border-radius: 10px;
+            border: none;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #16a34a;
+            color: white;
+            text-align: center;
+        }
+        .envio-acao-btn:hover { background: #15803d; transform: translateY(-1px); }
+        .envio-acao-btn:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
     </style>
 </head>
 <body>
@@ -1607,7 +1714,7 @@
                                     <tr>
                                         <th id="thNome">Nome</th><th>Idade</th><th>Celular</th><th>Discipulador</th>
                                         <th>Líder</th><th>Tipo Inscrição</th>
-                                        <th>Status Pagamento</th><th>Método</th><th>Presente</th><th>Inscrito Em</th><th>Duplicado</th>
+                                        <th>Status Pagamento</th><th>Método</th><th>Presente</th><th>Inscrito Em</th><th>Duplicado</th><th>QR</th>
                                     </tr>
                                 </thead>
                                 <tbody id="tableBody"><tr><td colspan="15" class="no-data">Nenhum dado para exibir</td></tr></tbody>
@@ -1679,6 +1786,7 @@
             <button class="grex-modal-link" id="grexLinkQrcode">QRCODE</button>
             <button class="grex-modal-link" id="grexLinkAutomacao">Automação Presença</button>
             <button class="grex-modal-link grex-modal-link-adm" id="grexLinkFinanceiro">Módulo Financeiro</button>
+            <button class="grex-modal-link grex-modal-link-envio" id="grexLinkEnvioQrcode">ENVIO QRCODE</button>
         </div>
     </div>
 
@@ -1714,6 +1822,20 @@
                     Excel
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div class="envio-overlay" id="envioOverlay">
+        <div class="envio-modal">
+            <button class="grex-modal-close" id="envioModalClose">✕</button>
+            <div class="envio-modal-title">📨 Envio de QR Codes</div>
+            <div class="envio-percent" id="envioPercent">0%</div>
+            <div class="envio-progress-wrap">
+                <div class="envio-progress-bar" id="envioProgressBar"></div>
+            </div>
+            <div class="envio-info" id="envioInfo">Pronto para iniciar o envio</div>
+            <div class="envio-current" id="envioCurrent"></div>
+            <button class="envio-acao-btn" id="envioIniciarBtn">Iniciar Envio</button>
         </div>
     </div>
 
@@ -2877,12 +2999,14 @@
                     </a>
                 </div>`;
 
+                const nomeEscapado = JSON.stringify(item.nome);
                 return `<tr>
                     <td>${esc(item.nome)}</td><td>${esc(item.idade)}</td><td>${celularComWhats}</td>
                     <td>${esc(item.discipulador)}</td><td>${esc(item.lider)}</td><td>${esc(item.tipoInscricao)}</td>
                     <td>${statusBadge}</td>
                     <td>${esc(metodoTraduzido)}</td><td>${presencaBadge}</td><td>${esc(dataFormatada)}</td>
                     <td>${isDuplicado ? '<span class="duplicado-badge">Sim</span>' : '-'}</td>
+                    <td><button class="qr-send-btn" onclick="enviarQrcodeIndividual(this,${nomeEscapado})">📨</button></td>
                 </tr>`;
             }).join('');
             renderizarResumoDados();
@@ -3525,6 +3649,169 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 aplicarFiltros();
             });
         });
+
+        // ---- Envio de QR Codes ----
+        let _envioPoller = null;
+
+        async function enviarQrcodeIndividual(btn, nome) {
+            if (btn.classList.contains('enviando')) return;
+            btn.classList.add('enviando');
+            const originalText = btn.textContent;
+            btn.textContent = '⏳';
+            try {
+                const resp = await fetch('/enviar-qrcode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({nome})
+                });
+                if (resp.status === 409) {
+                    mostrarToast('Aguarde — outro envio em andamento', 'error');
+                    btn.classList.remove('enviando');
+                    btn.textContent = originalText;
+                    return;
+                }
+                if (!resp.ok) throw new Error('Servidor indisponível');
+                mostrarToast('Enviando QR para ' + nome + '…');
+                _iniciarPollingQrcode(function(data) {
+                    if (data.concluido) {
+                        btn.classList.remove('enviando');
+                        if (data.status === 'concluido' && data.enviados > 0) {
+                            btn.textContent = '✅';
+                            setTimeout(() => { btn.textContent = '📨'; }, 3000);
+                        } else {
+                            btn.textContent = '❌';
+                            setTimeout(() => { btn.textContent = '📨'; }, 3000);
+                            mostrarToast(data.erro || 'Não encontrado', 'error');
+                        }
+                    }
+                });
+            } catch(e) {
+                mostrarToast('Erro: ' + e.message, 'error');
+                btn.classList.remove('enviando');
+                btn.textContent = originalText;
+            }
+        }
+
+        function abrirEnvioQrcodeModal() {
+            document.getElementById('envioPercent').textContent = '0%';
+            document.getElementById('envioProgressBar').style.width = '0%';
+            document.getElementById('envioInfo').textContent = 'Pronto para iniciar o envio';
+            document.getElementById('envioCurrent').textContent = '';
+            const btn = document.getElementById('envioIniciarBtn');
+            btn.disabled = false;
+            btn.textContent = 'Iniciar Envio';
+            document.getElementById('envioOverlay').classList.add('show');
+            _verificarStatusAtivo();
+        }
+
+        async function _verificarStatusAtivo() {
+            try {
+                const resp = await fetch('/qrcode-status');
+                if (!resp.ok) return;
+                const data = await resp.json();
+                if (!data.concluido && (data.status === 'processando' || data.status === 'iniciando')) {
+                    _atualizarEnvioModal(data);
+                    const btn = document.getElementById('envioIniciarBtn');
+                    btn.disabled = true;
+                    btn.textContent = 'Enviando…';
+                    _iniciarPollingQrcode(null);
+                } else if (data.status && data.status !== 'idle') {
+                    _atualizarEnvioModal(data);
+                }
+            } catch(e) {}
+        }
+
+        async function iniciarEnvioQrcodeTodos() {
+            const btn = document.getElementById('envioIniciarBtn');
+            btn.disabled = true;
+            btn.textContent = 'Enviando…';
+            try {
+                const resp = await fetch('/enviar-qrcode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({todos: true})
+                });
+                if (resp.status === 409) {
+                    mostrarToast('Envio já em andamento', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Iniciar Envio';
+                    _iniciarPollingQrcode(null);
+                    return;
+                }
+                if (!resp.ok) throw new Error('Servidor indisponível');
+                _iniciarPollingQrcode(null);
+            } catch(e) {
+                mostrarToast('Erro: ' + e.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Iniciar Envio';
+            }
+        }
+
+        function _iniciarPollingQrcode(callback) {
+            clearInterval(_envioPoller);
+            _envioPoller = setInterval(async () => {
+                try {
+                    const resp = await fetch('/qrcode-status');
+                    if (!resp.ok) return;
+                    const data = await resp.json();
+                    _atualizarEnvioModal(data);
+                    if (callback) callback(data);
+                    if (data.concluido) {
+                        clearInterval(_envioPoller);
+                        _envioPoller = null;
+                        const btn = document.getElementById('envioIniciarBtn');
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.textContent = data.status === 'erro' ? 'Tentar Novamente' : 'Concluído ✓';
+                        }
+                    }
+                } catch(e) {}
+            }, 1500);
+        }
+
+        function _atualizarEnvioModal(data) {
+            const overlay = document.getElementById('envioOverlay');
+            if (!overlay) return;
+            const pct = data.total > 0 ? Math.round((data.enviados / data.total) * 100) : 0;
+            document.getElementById('envioProgressBar').style.width = pct + '%';
+            document.getElementById('envioPercent').textContent = pct + '%';
+            const count = `${data.enviados || 0} de ${data.total || 0} enviados`;
+            if (data.status === 'concluido') {
+                document.getElementById('envioInfo').textContent = '✅ Concluído! ' + count;
+            } else if (data.status === 'erro') {
+                document.getElementById('envioInfo').textContent = '❌ Erro: ' + (data.erro || 'desconhecido');
+            } else if (data.status === 'nao_encontrado') {
+                document.getElementById('envioInfo').textContent = '❌ ' + (data.erro || 'Não encontrado');
+            } else if (data.status === 'iniciando') {
+                document.getElementById('envioInfo').textContent = '⏳ Iniciando…';
+            } else {
+                document.getElementById('envioInfo').textContent = count;
+            }
+            if (data.atual) {
+                document.getElementById('envioCurrent').textContent = '→ ' + data.atual;
+            }
+        }
+
+        (function() {
+            document.getElementById('envioIniciarBtn').addEventListener('click', iniciarEnvioQrcodeTodos);
+            document.getElementById('envioModalClose').addEventListener('click', function() {
+                document.getElementById('envioOverlay').classList.remove('show');
+                clearInterval(_envioPoller);
+                _envioPoller = null;
+            });
+            document.getElementById('envioOverlay').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                    clearInterval(_envioPoller);
+                    _envioPoller = null;
+                }
+            });
+            document.getElementById('grexLinkEnvioQrcode').addEventListener('click', function() {
+                document.getElementById('grexOverlay').classList.remove('show');
+                abrirEnvioQrcodeModal();
+            });
+        })();
+        // ---- Fim Envio QR Codes ----
 
         // Carregar dados do Excel e inicializar dashboard
         async function inicializar() {

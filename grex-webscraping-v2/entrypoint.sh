@@ -54,7 +54,7 @@ echo "✅ config.js gerado!"
 
 echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
-import http.server, os, re, zipfile
+import http.server, os, re, zipfile, subprocess, json as _json
 import xml.etree.ElementTree as ET
 
 NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
@@ -144,12 +144,30 @@ def _calcular_pagos_total():
     )
     return max(0, total - pagar_depois), None
 
+_qrcode_proc = None
+
 class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
     def do_GET(self):
         if self.path == '/pagos-total':
             self._serve_pagos_total()
+        elif self.path == '/qrcode-status':
+            self._serve_qrcode_status()
         else:
             super().do_GET()
+
+    def do_POST(self):
+        if self.path == '/enviar-qrcode':
+            self._handle_enviar_qrcode()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def _serve_pagos_total(self):
         total, err = _calcular_pagos_total()
@@ -164,6 +182,73 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(body)
+
+    def _serve_qrcode_status(self):
+        status_path = '/app/data/qrcode_status.json'
+        try:
+            with open(status_path, 'r', encoding='utf-8') as f:
+                body = f.read().encode('utf-8')
+            self.send_response(200)
+        except FileNotFoundError:
+            body = b'{"status":"idle","concluido":false,"total":0,"enviados":0}'
+            self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', len(body))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _handle_enviar_qrcode(self):
+        global _qrcode_proc
+        content_len = int(self.headers.get('Content-Length', 0))
+        raw = self.rfile.read(content_len)
+        try:
+            data = _json.loads(raw)
+        except Exception:
+            data = {}
+
+        # Bloquear novo envio se já houver um em andamento
+        status_path = '/app/data/qrcode_status.json'
+        try:
+            with open(status_path, 'r') as f:
+                st = _json.load(f)
+            if not st.get('concluido', True) and st.get('status') in ('iniciando', 'processando'):
+                resp = _json.dumps({'ok': False, 'erro': 'Envio em andamento'}).encode('utf-8')
+                self.send_response(409)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', len(resp))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(resp)
+                return
+        except Exception:
+            pass
+
+        if data.get('todos'):
+            _qrcode_proc = subprocess.Popen(
+                ['python3', '/app/enviar_qrcode.py', 'todos'],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        elif data.get('nome'):
+            _qrcode_proc = subprocess.Popen(
+                ['python3', '/app/enviar_qrcode.py', data['nome']],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            resp = _json.dumps({'ok': False, 'erro': 'Parametro invalido'}).encode('utf-8')
+            self.send_response(400)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', len(resp))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(resp)
+            return
+
+        resp = _json.dumps({'ok': True}).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(resp))
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(resp)
 
     def end_headers(self):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
