@@ -289,6 +289,72 @@
             color: var(--text-dark);
             line-height: 1.6;
         }
+        /* Export format modal */
+        .export-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 2300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .export-overlay.show { opacity: 1; pointer-events: all; }
+        .export-modal {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 32px 28px 24px;
+            width: min(340px, 92vw);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            position: relative;
+            text-align: center;
+            transform: scale(0.88) translateY(10px);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .export-overlay.show .export-modal { transform: scale(1) translateY(0); }
+        .export-modal-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 6px;
+        }
+        .export-modal-sub {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 24px;
+        }
+        .export-btn-group {
+            display: flex;
+            gap: 12px;
+            width: 100%;
+        }
+        .export-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 18px 12px;
+            border: 2px solid var(--gray-border);
+            border-radius: 12px;
+            background: var(--lighter-gray);
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            transition: all 0.2s ease;
+        }
+        .export-btn:hover { border-color: var(--purple-primary); background: #f3eeff; color: var(--purple-primary); }
+        .export-btn-icon { font-size: 28px; }
         /* QR Code modal */
         .qr-overlay {
             position: fixed;
@@ -1630,6 +1696,24 @@
             <button class="grex-modal-close" id="adminModalClose">✕</button>
             <div class="admin-modal-icon">🔒</div>
             <div class="admin-modal-text">Contate o Administrador do sistema</div>
+        </div>
+    </div>
+
+    <div class="export-overlay" id="exportOverlay">
+        <div class="export-modal">
+            <button class="grex-modal-close" id="exportModalClose">✕</button>
+            <div class="export-modal-title" id="exportModalTitle">Exportar relatório</div>
+            <div class="export-modal-sub">Escolha o formato de exportação</div>
+            <div class="export-btn-group">
+                <button class="export-btn" id="exportBtnPdf">
+                    <span class="export-btn-icon">📄</span>
+                    PDF
+                </button>
+                <button class="export-btn" id="exportBtnExcel">
+                    <span class="export-btn-icon">📊</span>
+                    Excel
+                </button>
+            </div>
         </div>
     </div>
 
@@ -3001,6 +3085,75 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 </body></html>`);
         }
 
+        function exportarExcelConvidados() {
+            const convidados = allData.filter(item => {
+                const t = String(item.tipoInscricao || '').toLowerCase().trim();
+                return t.includes('convidado') || t.includes('encontrista') || t.includes('guest');
+            }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+            if (convidados.length === 0) { alert('Nenhum convidado encontrado.'); return; }
+
+            const headers = ['#','Nome','Idade','Celular','Nome do Familiar','Telefone do Familiar','Discipulador','Líder','Status Pagamento','Presente','Inscrito Em'];
+            const rows = convidados.map((item, idx) => {
+                const st = mapStatus(item.statusPagamento);
+                return [idx+1, item.nome, item.idade, item.celular, item.nomeFamiliar, item.telefoneFamiliar, item.discipulador, item.lider, st.label, isPresente(item.presenca) ? 'Sim' : 'Não', fmtData(item.dataInscricao)];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Convidados');
+            XLSX.writeFile(wb, 'lista_convidados.xlsx');
+        }
+
+        function exportarExcelRejeitados() {
+            const rejeitados = allData.filter(item => {
+                const sl = String(item.statusPagamento || '').toLowerCase().trim();
+                return sl === 'rejected' || sl === 'rejeitado' || sl === 'denied';
+            }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+            if (rejeitados.length === 0) { alert('Nenhum inscrito rejeitado encontrado.'); return; }
+
+            const headers = ['#','Nome','Idade','Celular','Discipulador','Líder','Status Pagamento','Presente','Inscrito Em'];
+            const rows = rejeitados.map((item, idx) => {
+                return [idx+1, item.nome, item.idade, item.celular, item.discipulador, item.lider, 'Rejeitado', isPresente(item.presenca) ? 'Sim' : 'Não', fmtData(item.dataInscricao)];
+            });
+            const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Rejeitados');
+            XLSX.writeFile(wb, 'inscritos_rejeitados.xlsx');
+        }
+
+        (function() {
+            const overlay = document.getElementById('exportOverlay');
+            const btnPdf  = document.getElementById('exportBtnPdf');
+            const btnXls  = document.getElementById('exportBtnExcel');
+            const title   = document.getElementById('exportModalTitle');
+            const closeBtn = document.getElementById('exportModalClose');
+            let _pdfFn = null, _xlsFn = null;
+
+            function abrirExport(tituloModal, pdfFn, xlsFn) {
+                title.textContent = tituloModal;
+                _pdfFn = pdfFn;
+                _xlsFn = xlsFn;
+                overlay.classList.add('show');
+            }
+
+            function fecharExport() { overlay.classList.remove('show'); }
+
+            closeBtn.addEventListener('click', fecharExport);
+            overlay.addEventListener('click', function(e) { if (e.target === overlay) fecharExport(); });
+
+            btnPdf.addEventListener('click', function() {
+                fecharExport();
+                if (_pdfFn) _pdfFn();
+            });
+            btnXls.addEventListener('click', function() {
+                fecharExport();
+                if (_xlsFn) _xlsFn();
+            });
+
+            window._abrirExport = abrirExport;
+        })();
+
         // Toggle do submenu Reports
         document.getElementById('navReports').addEventListener('click', function() {
             this.classList.toggle('open');
@@ -3012,8 +3165,8 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 alert('Nenhum dado carregado. Aguarde o upload do arquivo de inscritos.');
                 return;
             }
-            gerarPDFConvidados();
             if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
+            window._abrirExport('Exportar Lista de Convidados', gerarPDFConvidados, exportarExcelConvidados);
         });
 
         document.getElementById('navSubPdfRejeitados').addEventListener('click', function() {
@@ -3021,8 +3174,8 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 alert('Nenhum dado carregado. Aguarde o upload do arquivo de inscritos.');
                 return;
             }
-            gerarPDFRejeitados();
             if (window.innerWidth <= 768) document.getElementById('sidebar').classList.add('collapsed');
+            window._abrirExport('Exportar Inscritos Rejeitados', gerarPDFRejeitados, exportarExcelRejeitados);
         });
 
         // Toggle do menu
