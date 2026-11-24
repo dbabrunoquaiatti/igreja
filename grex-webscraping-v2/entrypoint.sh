@@ -52,34 +52,64 @@ PYEOF
 
 echo "✅ config.js gerado!"
 
-echo "📦 Garantindo openpyxl instalado..."
-pip3 install openpyxl --quiet 2>/dev/null || true
-
 echo "🌐 Iniciando servidor web na porta 8080..."
 python3 - << 'SERVEREOF' &
-import http.server, os, re
+import http.server, os, re, zipfile
+import xml.etree.ElementTree as ET
+
+NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+
+def _col_idx(ref):
+    """'B3' -> 1  (0-based column index)"""
+    m = re.match(r'([A-Z]+)', str(ref))
+    if not m:
+        return 0
+    n = 0
+    for ch in m.group(1):
+        n = n * 26 + ord(ch) - 64
+    return n - 1
+
+def _read_xlsx(path):
+    """Return list of rows; each row is a dict {col_index: cell_value_str}."""
+    with zipfile.ZipFile(path) as zf:
+        names = zf.namelist()
+        # shared strings
+        strs = []
+        if 'xl/sharedStrings.xml' in names:
+            root = ET.parse(zf.open('xl/sharedStrings.xml')).getroot()
+            for si in root.findall(f'{{{NS}}}si'):
+                strs.append(''.join(t.text or '' for t in si.iter(f'{{{NS}}}t')))
+        # first sheet
+        sheets = sorted(n for n in names if re.match(r'xl/worksheets/sheet\d+\.xml$', n))
+        if not sheets:
+            return []
+        rows = []
+        root = ET.parse(zf.open(sheets[0])).getroot()
+        for row_el in root.iter(f'{{{NS}}}row'):
+            row = {}
+            for c in row_el.findall(f'{{{NS}}}c'):
+                col = _col_idx(c.get('r', ''))
+                t   = c.get('t', '')
+                vel = c.find(f'{{{NS}}}v')
+                v   = vel.text if vel is not None else ''
+                if t == 's':
+                    try: row[col] = strs[int(v)]
+                    except: row[col] = ''
+                elif t == 'inlineStr':
+                    iel = c.find(f'{{{NS}}}is')
+                    row[col] = ''.join(x.text or '' for x in iel.iter(f'{{{NS}}}t')) if iel is not None else ''
+                else:
+                    row[col] = v or ''
+            if row:
+                rows.append(row)
+        return rows
 
 def _calcular_pagos_total():
-    try:
-        import openpyxl
-    except ImportError:
-        return None, 'openpyxl nao instalado'
-
-    STATUS_VARIANTS = [
-        'statusdopagamento', 'statuspagamento', 'statuspgto',
-        'paymentstatus', 'status'
-    ]
-    PAID = {'paid', 'approved', 'aprovado', 'confirmado', 'confirm', 'pago', 'concluido', 'concluído'}
+    STATUS_VARIANTS = ['statusdopagamento','statuspagamento','statuspgto','paymentstatus','status']
+    PAID = {'paid','approved','aprovado','confirmado','confirm','pago','concluido','concluído'}
 
     def norm(s):
         return re.sub(r'\s+', '', str(s or '')).lower()
-
-    def find_col(headers):
-        h = {norm(h): i for i, h in enumerate(headers)}
-        for v in STATUS_VARIANTS:
-            if v in h:
-                return h[v]
-        return None
 
     total = 0
     for fname in ('encontro.xlsx', 'encontro2.xlsx'):
@@ -87,20 +117,24 @@ def _calcular_pagos_total():
         if not os.path.exists(path):
             continue
         try:
-            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-            ws = wb.active
-            it = ws.iter_rows(values_only=True)
-            headers = next(it, None)
-            if not headers:
-                wb.close(); continue
-            col = find_col(headers)
+            rows = _read_xlsx(path)
+            if not rows:
+                continue
+            # header row
+            hdr = rows[0]
+            col = None
+            for sv in STATUS_VARIANTS:
+                for ci, val in hdr.items():
+                    if norm(val) == sv:
+                        col = ci
+                        break
+                if col is not None:
+                    break
             if col is None:
-                wb.close(); continue
-            for row in it:
-                val = norm(row[col] if col < len(row) else '')
-                if val in PAID:
+                continue
+            for row in rows[1:]:
+                if norm(row.get(col, '')) in PAID:
                     total += 1
-            wb.close()
         except Exception:
             pass
 
