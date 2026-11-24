@@ -1839,19 +1839,19 @@
             return {
                 nome: resolverNome(),
                 idade: parseInt(findValue(row, overrides.idade, 'Idade', 'age', 'Age') || 0),
-                email: findValue(row, overrides.email, 'Email', 'email') || '',
+                email: findValue(row, overrides.email, 'Email', 'E-mail', 'email', 'e-mail') || '',
                 cpf: String(findValue(row, overrides.cpf, 'CPF', 'cpf') || ''),
-                celular: String(findValue(row, overrides.celular, 'Celular', 'celular', 'phone') || ''),
+                celular: String(findValue(row, overrides.celular, 'Celular', 'Telefone', 'celular', 'phone') || ''),
                 discipulador: findValue(row, overrides.discipulador, 'Discipuladora', 'Discipulador', 'discipulador') || '',
-                pastoraRede: findValue(row, overrides.pastoraRede, 'Pastora de Rede', 'pastoraRede', 'pastora') || '',
-                lider: findValue(row, overrides.lider, 'Líder', 'lider', 'leader') || 'Não',
+                pastoraRede: findValue(row, overrides.pastoraRede, 'Pastora de Rede', 'Pastor de Rede', 'pastoraRede', 'pastora') || '',
+                lider: findValue(row, overrides.lider, 'Líder', 'Lider', 'lider', 'leader') || 'Não',
                 tipoInscricao: findValue(row, overrides.tipoInscricao, 'TipoInscrição', 'Tipo Inscrição', 'Tipo de Inscrição', 'tipoInscricao', 'subscription type') || '',
-                nomeFamiliar: findValue(row, overrides.nomeFamiliar || (window.CONFIG.NOME_FAMILIAR_COL || null), 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
-                telefoneFamiliar: findValue(row, overrides.telefoneFamiliar || (window.CONFIG.TEL_FAMILIAR_COL || null), 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
-                statusPagamento: findValue(row, overrides.statusPagamento, 'StatusPagamento', 'Status Pagamento', 'statusPagamento', 'payment status') || 'Pending',
-                formaPagamento: findValue(row, overrides.formaPagamento, 'FormaPagamento', 'Forma Pagamento', 'formaPagamento', 'payment method') || '',
-                presenca: findValue(row, overrides.presenca, 'Presença', 'presenca', 'Presença', 'presence', 'attendance') || '',
-                dataInscricao: findValue(row, overrides.dataInscricao, 'DataInscrição', 'Data Inscrição', 'dataInscricao', 'subscription date') || ''
+                nomeFamiliar: findValue(row, overrides.nomeFamiliar || (window.CONFIG.NOME_FAMILIAR_COL || null), 'Nome do Familiar', 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
+                telefoneFamiliar: findValue(row, overrides.telefoneFamiliar || (window.CONFIG.TEL_FAMILIAR_COL || null), 'Telefone do Familiar', 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
+                statusPagamento: findValue(row, overrides.statusPagamento, 'Status do Pagamento', 'StatusPagamento', 'Status Pagamento', 'statusPagamento', 'payment status') || 'Pending',
+                formaPagamento: findValue(row, overrides.formaPagamento, 'Forma de Pagamento', 'FormaPagamento', 'Forma Pagamento', 'formaPagamento', 'payment method') || '',
+                presenca: findValue(row, overrides.presenca, 'Presença', 'presenca', 'presence', 'attendance') || '',
+                dataInscricao: findValue(row, overrides.dataInscricao, 'Data da Inscrição', 'DataInscrição', 'Data Inscrição', 'dataInscricao', 'subscription date') || ''
             };
         }
 
