@@ -3802,31 +3802,63 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             }, 1500);
         }
 
+        function _fmtTempo(seg) {
+            if (!isFinite(seg) || seg <= 0) return '';
+            seg = Math.round(seg);
+            if (seg < 60) return seg + 's';
+            const m = Math.floor(seg / 60), s = seg % 60;
+            return m + 'm' + (s > 0 ? ' ' + s + 's' : '');
+        }
+
         function _atualizarEnvioModal(data) {
-            const pct = data.total > 0 ? Math.round((data.enviados / data.total) * 100) : 0;
+            const env = data.enviados || 0;
+            const tot = data.total    || 0;
+            const pct = tot > 0 ? Math.round((env / tot) * 100) : 0;
             document.getElementById('envioProgressBar').style.width = pct + '%';
             document.getElementById('envioPercent').textContent = pct + '%';
-            const count = `${data.enviados || 0} de ${data.total || 0} enviados`;
+
+            let linha1 = '';
+            let linha2 = data.atual ? '→ ' + data.atual : '';
+
             if (data.status === 'concluido') {
-                document.getElementById('envioInfo').textContent = '✅ Concluído! ' + count;
+                linha1 = '✅ Concluído! ' + env + ' de ' + tot + ' enviados';
+                if (data.start_ts) {
+                    const totalSeg = Date.now() / 1000 - data.start_ts;
+                    linha1 += ' · ' + _fmtTempo(totalSeg) + ' no total';
+                }
+                linha2 = '';
             } else if (data.status === 'erro') {
-                document.getElementById('envioInfo').textContent = '❌ Erro: ' + (data.erro || 'desconhecido');
+                linha1 = '❌ Erro: ' + (data.erro || 'desconhecido');
+                linha2 = '';
             } else if (data.status === 'nao_encontrado') {
-                document.getElementById('envioInfo').textContent = '❌ ' + (data.erro || 'Não encontrado');
+                linha1 = '❌ ' + (data.erro || 'Não encontrado');
+                linha2 = '';
             } else if (data.status === 'iniciando') {
-                document.getElementById('envioInfo').textContent = '⏳ Iniciando…';
+                linha1 = '⏳ Iniciando…';
             } else {
-                document.getElementById('envioInfo').textContent = count;
+                linha1 = env + ' de ' + tot + ' enviados';
+                if (data.start_ts && env > 0) {
+                    const decorrido = Date.now() / 1000 - data.start_ts;
+                    const taxa = env / decorrido;
+                    const restam = tot - env;
+                    if (restam > 0 && taxa > 0) {
+                        linha1 += '  ·  ~' + _fmtTempo(restam / taxa) + ' restantes';
+                    }
+                } else if (data.start_ts && env === 0) {
+                    linha1 += '  ·  estimando…';
+                }
             }
-            if (data.atual) {
-                document.getElementById('envioCurrent').textContent = '→ ' + data.atual;
-            }
+
+            document.getElementById('envioInfo').textContent = linha1;
+            document.getElementById('envioCurrent').textContent = linha2;
         }
 
         (function() {
             document.getElementById('envioIniciarBtn').addEventListener('click', function() {
-                // "Fechar" é exibido após envio individual concluído
-                if (this.textContent === 'Fechar') { _fecharModalEnvio(); return; }
+                if (this.textContent === 'Fechar' || this.textContent === 'Concluído ✓') {
+                    _fecharModalEnvio(); return;
+                }
+                // 'Tentar Novamente' ou 'Iniciar Envio' → dispara o envio
                 iniciarEnvioQrcodeTodos();
             });
             document.getElementById('envioModalClose').addEventListener('click', function() {

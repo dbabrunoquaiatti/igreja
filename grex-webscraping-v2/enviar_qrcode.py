@@ -145,8 +145,9 @@ def enviar_por_nome(nome_busca):
     senha = os.environ.get("GREX_PASSWORD", "")
     url   = os.environ.get("GREX_PARTICIPANTS_URL", "")
 
+    start_ts = time.time()
     _salvar_status(status="iniciando", modo="individual", nome=nome_busca,
-                   total=1, enviados=0, atual=nome_busca, concluido=False)
+                   total=1, enviados=0, atual=nome_busca, concluido=False, start_ts=start_ts)
     driver = None
     try:
         driver = _setup_driver()
@@ -163,6 +164,9 @@ def enviar_por_nome(nome_busca):
         for linha in linhas:
             cels = linha.find_elements(By.TAG_NAME, "td")
             if cels and nome_busca.lower() in cels[0].text.strip().lower():
+                _salvar_status(status="processando", modo="individual", nome=nome_busca,
+                               total=1, enviados=0, atual=nome_busca, concluido=False,
+                               start_ts=start_ts)
                 _enviar_linha(driver, linha)
                 encontrado = True
                 print(f"[QR] Enviado para {nome_busca}", flush=True)
@@ -170,10 +174,11 @@ def enviar_por_nome(nome_busca):
 
         if encontrado:
             _salvar_status(status="concluido", modo="individual", nome=nome_busca,
-                           total=1, enviados=1, atual="", concluido=True)
+                           total=1, enviados=1, atual="", concluido=True, start_ts=start_ts)
         else:
             _salvar_status(status="nao_encontrado", modo="individual", nome=nome_busca,
                            total=1, enviados=0, atual="", concluido=True,
+                           start_ts=start_ts,
                            erro=f"Participante não encontrado: {nome_busca}")
     except Exception as e:
         print(f"[QR] Erro: {e}", flush=True)
@@ -210,28 +215,42 @@ def enviar_todos():
         time.sleep(1)
         total = len(driver.find_elements(By.CSS_SELECTOR, "tr.table__row"))
         enviados = 0
+        falhas = 0
+        start_ts = time.time()
         _salvar_status(status="processando", modo="todos", total=total,
-                       enviados=0, atual="", concluido=False)
+                       enviados=0, atual="", concluido=False, start_ts=start_ts)
         print(f"[QR] {total} linha(s) para enviar", flush=True)
 
         for i in range(total):
+            # Re-busca as linhas a cada iteração; se a linha desapareceu do filtro
+            # (já foi processada), sempre pega a primeira da lista restante.
+            linhas = driver.find_elements(By.CSS_SELECTOR, "tr.table__row")
+            # Calcula qual índice real usar: se linhas encurtou, usa 0 (primeira restante)
+            idx = i - falhas if (i - falhas) < len(linhas) else 0
+            if not linhas:
+                break
+            if idx >= len(linhas):
+                idx = 0
             try:
-                linhas = driver.find_elements(By.CSS_SELECTOR, "tr.table__row")
-                if i >= len(linhas):
-                    break
-                cels = linhas[i].find_elements(By.TAG_NAME, "td")
+                cels = linhas[idx].find_elements(By.TAG_NAME, "td")
                 nome = cels[0].text.strip() if cels else f"Linha {i+1}"
                 _salvar_status(status="processando", modo="todos", total=total,
-                               enviados=enviados, atual=nome, concluido=False)
-                _enviar_linha(driver, linhas[i])
+                               enviados=enviados, atual=nome, concluido=False,
+                               start_ts=start_ts)
+                _enviar_linha(driver, linhas[idx])
                 enviados += 1
+                # Atualiza DEPOIS do envio para a porcentagem crescer imediatamente
+                _salvar_status(status="processando", modo="todos", total=total,
+                               enviados=enviados, atual=nome, concluido=False,
+                               start_ts=start_ts)
                 print(f"[QR] [{enviados}/{total}] {nome}", flush=True)
                 time.sleep(0.5)
             except Exception as e:
-                print(f"[QR] Falha linha {i+1}: {e}", flush=True)
+                falhas += 1
+                print(f"[QR] Falha item {i+1}: {e}", flush=True)
 
         _salvar_status(status="concluido", modo="todos", total=total,
-                       enviados=enviados, atual="", concluido=True)
+                       enviados=enviados, atual="", concluido=True, start_ts=start_ts)
         print(f"[QR] Concluido: {enviados}/{total}", flush=True)
     except Exception as e:
         print(f"[QR] Erro geral: {e}", flush=True)
