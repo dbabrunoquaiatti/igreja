@@ -1409,6 +1409,82 @@
             .sorteio-opcao label { font-size: 12px; }
             .toast-check         { font-size: 15px; }
         }
+        /* ── Equipes ── */
+        .equipes-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .equipe-card {
+            flex: 1 1 calc(33.33% - 14px);
+            min-width: 280px;
+            background: var(--white);
+            border: 2px solid var(--gray-border);
+            border-radius: 16px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .equipe-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .equipe-header {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .equipe-nome {
+            font-family: 'Poppins', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .equipe-badges { display: flex; gap: 8px; }
+        .equipe-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+        .equipe-badge.h { background: #dbeafe; color: #1d4ed8; }
+        .equipe-badge.m { background: #fce7f3; color: #9d174d; }
+        .equipe-badge.total { background: var(--lighter-gray); color: var(--text-light); }
+        .equipe-body { display: flex; }
+        .equipe-col { flex: 1; padding: 12px 16px; }
+        .equipe-col + .equipe-col { border-left: 1px solid var(--gray-border); }
+        .equipe-col-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .equipe-col.h .equipe-col-title { color: #1d4ed8; }
+        .equipe-col.m .equipe-col-title { color: #9d174d; }
+        .equipe-col.u .equipe-col-title { color: var(--text-lighter); }
+        .equipe-pessoa {
+            font-size: 12px;
+            color: var(--text-dark);
+            padding: 3px 0;
+            border-bottom: 1px solid var(--gray-border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .equipe-pessoa:last-child { border-bottom: none; }
+        .equipe-vazia { font-size: 12px; color: var(--text-lighter); font-style: italic; }
+        .equipes-sem-config {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            color: var(--text-light);
+        }
+        @media (max-width: 768px) {
+            .equipe-card { flex: 1 1 100%; }
+            .equipe-body { flex-direction: column; }
+            .equipe-col + .equipe-col { border-left: none; border-top: 1px solid var(--gray-border); }
+        }
         /* ── Submenu Reports ── */
         .nav-parent {
             display: flex;
@@ -1671,6 +1747,7 @@
                 <div class="nav-item" data-page="dados"><span class="nav-icon">📋</span><span>Dados</span></div>
                 <div class="nav-item" data-page="cronograma"><span class="nav-icon">📅</span><span>Cronograma</span></div>
                 <div class="nav-item" data-page="sorteio"><span class="nav-icon">🎉</span><span>Sorteio</span></div>
+                <div class="nav-item" data-page="equipes"><span class="nav-icon">👥</span><span>Equipes</span></div>
                 <div class="nav-item nav-parent" id="navReports">
                     <span class="nav-left"><span class="nav-icon">📊</span><span>Reports</span></span>
                     <span class="nav-arrow">▾</span>
@@ -1854,6 +1931,11 @@
                         </div>
                         <div class="sorteio-progresso" id="sorteioProgresso"></div>
                         <div class="sorteio-ganhadores" id="sorteioGanhadores"></div>
+                    </div>
+                </div>
+                <div id="equipes" class="page-section">
+                    <div class="discipulado-container" style="padding:24px">
+                        <div id="equipesGrid" class="equipes-grid"></div>
                     </div>
                 </div>
             </div>
@@ -2149,6 +2231,8 @@
                 tipoInscricao: findValue(row, overrides.tipoInscricao, 'TipoInscrição', 'Tipo Inscrição', 'Tipo de Inscrição', 'tipoInscricao', 'subscription type') || '',
                 nomeFamiliar: findValue(row, overrides.nomeFamiliar || (window.CONFIG.NOME_FAMILIAR_COL || null), 'Nome do Familiar', 'NomeFamiliar', 'Nome Familiar', 'nomeFamiliar') || '',
                 telefoneFamiliar: findValue(row, overrides.telefoneFamiliar || (window.CONFIG.TEL_FAMILIAR_COL || null), 'Telefone do Familiar', 'TelFamiliar', 'Tel. Familiar', 'telefoneFamiliar') || '',
+                sexo: findValue(row, overrides.sexo || (window.CONFIG.SEXO_COL || null), 'Sexo', 'Gênero', 'Genero', 'Sexo do Inscrito', 'Gender', 'sexo') || '',
+                equipe: findValue(row, overrides.equipe || (window.CONFIG.EQUIPE_COL || null), 'Equipe', 'Time', 'Grupo', 'Team', 'equipe') || '',
                 statusPagamento: findValue(row, overrides.statusPagamento, 'Status do Pagamento', 'StatusPagamento', 'Status Pagamento', 'statusPagamento', 'payment status') || 'Pending',
                 formaPagamento: findValue(row, overrides.formaPagamento, 'Forma de Pagamento', 'FormaPagamento', 'Forma Pagamento', 'formaPagamento', 'payment method') || '',
                 presenca: findValue(row, overrides.presenca, 'Presença', 'presenca', 'presence', 'attendance') || '',
@@ -2335,6 +2419,7 @@
                     renderizarDiscipulado();
                     renderizarRede();
                     renderizarResumoDados();
+                    renderizarEquipes();
                     atualizarTimestamp();
                 }
             });
@@ -3402,6 +3487,112 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             window._abrirExport('Exportar Inscritos Rejeitados', gerarPDFRejeitados, exportarExcelRejeitados);
         });
 
+        function renderizarEquipes() {
+            const grid = document.getElementById('equipesGrid');
+            if (!grid) return;
+
+            const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!configEquipes.length) {
+                grid.innerHTML = '<div class="equipes-sem-config">Configure a variável <strong>EQUIPES</strong> no ambiente (ex: <code>LARANJA,AMARELO,VERDE</code>).</div>';
+                return;
+            }
+
+            if (!allData || allData.length === 0) {
+                grid.innerHTML = '<div class="equipes-sem-config">Nenhum dado carregado.</div>';
+                return;
+            }
+
+            // Filtrar apenas servos (não convidados/encontristas)
+            const servos = allData.filter(item => {
+                const t = String(item.tipoInscricao || '').toLowerCase().trim();
+                return !t.includes('convidado') && !t.includes('encontrista') && !t.includes('guest');
+            });
+
+            function detectarGenero(item) {
+                const s = String(item.sexo || '').toLowerCase().trim();
+                if (!s) return 'U';
+                if (s.startsWith('m') || s.includes('masc') || s.includes('home') || s === 'h') return 'M';
+                if (s.startsWith('f') || s.includes('femi') || s.includes('mulh') || s === 'f') return 'F';
+                return 'U';
+            }
+
+            // Verificar se há coluna equipe preenchida
+            const temEquipeColuna = servos.some(p => p.equipe && p.equipe.trim());
+
+            let distribuicao = {}; // equipeNome -> { M: [], F: [], U: [] }
+            configEquipes.forEach(e => { distribuicao[e.toUpperCase()] = { M: [], F: [], U: [] }; });
+
+            if (temEquipeColuna) {
+                // Agrupar pelo campo equipe da planilha
+                servos.forEach(p => {
+                    const eq = (p.equipe || '').trim().toUpperCase();
+                    const g  = detectarGenero(p);
+                    // Encontrar equipe mais próxima na config (match exato ou inclui)
+                    let chave = configEquipes.find(e => e.toUpperCase() === eq);
+                    if (!chave) chave = configEquipes.find(e => eq.includes(e.toUpperCase()) || e.toUpperCase().includes(eq));
+                    if (!chave) return; // equipe não reconhecida, pular
+                    distribuicao[chave.toUpperCase()][g].push(p.nome);
+                });
+            } else {
+                // Distribuição automática round-robin por gênero
+                const homens   = servos.filter(p => detectarGenero(p) === 'M').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
+                const mulheres = servos.filter(p => detectarGenero(p) === 'F').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
+                const outros   = servos.filter(p => detectarGenero(p) === 'U').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
+                const eqs = configEquipes.map(e => e.toUpperCase());
+                homens.forEach((n,i)   => distribuicao[eqs[i % eqs.length]].M.push(n));
+                mulheres.forEach((n,i) => distribuicao[eqs[i % eqs.length]].F.push(n));
+                outros.forEach((n,i)   => distribuicao[eqs[i % eqs.length]].U.push(n));
+            }
+
+            // Cores fixas por nome de equipe
+            const CORES = {
+                'LARANJA':'#f97316','AMARELO':'#eab308','VERDE':'#16a34a','AZUL':'#2563eb',
+                'VERMELHO':'#dc2626','ROSA':'#ec4899','ROXO':'#7c3aed','BRANCO':'#6b7280',
+                'PRETO':'#1f2937','CINZA':'#6b7280'
+            };
+            function corEquipe(nome) {
+                for (const [k,v] of Object.entries(CORES)) {
+                    if (nome.includes(k)) return v;
+                }
+                return 'var(--purple-primary)';
+            }
+
+            function listaPessoas(arr) {
+                if (!arr.length) return '<span class="equipe-vazia">—</span>';
+                return arr.map(n => `<div class="equipe-pessoa" title="${esc(n)}">${esc(n)}</div>`).join('');
+            }
+
+            grid.innerHTML = configEquipes.map(nomeConfig => {
+                const chave = nomeConfig.toUpperCase();
+                const d = distribuicao[chave] || { M: [], F: [], U: [] };
+                const cor = corEquipe(chave);
+                const temU = d.U.length > 0;
+                return `
+                <div class="equipe-card">
+                    <div class="equipe-header" style="border-top:4px solid ${cor}">
+                        <span class="equipe-nome" style="color:${cor}">${esc(nomeConfig)}</span>
+                        <div class="equipe-badges">
+                            <span class="equipe-badge h">♂ ${d.M.length}</span>
+                            <span class="equipe-badge m">♀ ${d.F.length}</span>
+                            ${temU ? `<span class="equipe-badge total">? ${d.U.length}</span>` : ''}
+                            <span class="equipe-badge total">${d.M.length + d.F.length + d.U.length}</span>
+                        </div>
+                    </div>
+                    <div class="equipe-body">
+                        <div class="equipe-col h">
+                            <div class="equipe-col-title">♂ Homens</div>
+                            ${listaPessoas(d.M)}
+                        </div>
+                        <div class="equipe-col m">
+                            <div class="equipe-col-title">♀ Mulheres</div>
+                            ${listaPessoas(d.F)}
+                        </div>
+                        ${temU ? `<div class="equipe-col u"><div class="equipe-col-title">? Sem gênero</div>${listaPessoas(d.U)}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
         // Toggle do menu
         document.getElementById('menuToggle').addEventListener('click', function() {
             document.getElementById('sidebar').classList.toggle('collapsed');
@@ -3422,7 +3613,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 this.classList.add('active');
                 document.querySelectorAll('.page-section').forEach(page => page.classList.remove('active'));
                 document.getElementById(pageName).classList.add('active');
-                const titulos = {'resumo':'Relatório de Inscritos','discipulado':'Análise por Discipulado','rede':'Análise por Rede','dados':'Dados Completos','cronograma':'Cronograma do Encontro','sorteio':'Sorteio'};
+                const titulos = {'resumo':'Relatório de Inscritos','discipulado':'Análise por Discipulado','rede':'Análise por Rede','dados':'Dados Completos','cronograma':'Cronograma do Encontro','sorteio':'Sorteio','equipes':'Equipes'};
                 document.getElementById('pageTitle').textContent = titulos[pageName] || 'Dashboard';
 
                 // Atualizar timestamp baseado na aba

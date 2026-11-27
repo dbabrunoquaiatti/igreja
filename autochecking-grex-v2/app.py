@@ -3,8 +3,9 @@ import os
 import sys
 import json
 import hmac
+import base64
+import hashlib
 import re as _re
-import secrets
 import time
 import urllib.parse
 import requests
@@ -16,24 +17,7 @@ app = Flask(__name__)
 _PROXY_USER = os.environ.get('PROXY_USER') or os.environ.get('GREX_EMAIL') or 'admin'
 _PROXY_PASS = os.environ.get('PROXY_PASS') or os.environ.get('GREX_PASSWORD') or ''
 
-# Sessões server-side: {token: {'ts': float, 'email': str, 'senha': str}}
-_sessions = {}
 _SESSION_TTL = 86400  # 24 h
-
-def _cleanup_sessions():
-    now = time.time()
-    for k in [k for k, v in list(_sessions.items()) if now - v['ts'] > _SESSION_TTL]:
-        del _sessions[k]
-
-def _get_session():
-    tok = request.cookies.get('grex_session', '')
-    sess = _sessions.get(tok)
-    if sess and time.time() - sess['ts'] < _SESSION_TTL:
-        return sess
-    return None
-
-def _session_ok():
-    return _get_session() is not None
 
 @app.before_request
 def _proxy_auth():
@@ -86,6 +70,46 @@ def _ler_credenciais():
 
 
 GREX_EMAIL, GREX_SENHA = _ler_credenciais()
+
+# Cookie stateless assinado com HMAC — funciona com múltiplos workers e sobrevive restarts.
+# A chave é derivada das credenciais ou de COOKIE_SECRET (env var).
+_COOKIE_SECRET = hashlib.sha256(
+    (os.environ.get('COOKIE_SECRET', '') or _PROXY_PASS or GREX_SENHA or
+     'grex-checkin-proxy-v2').encode('utf-8')
+).digest()
+
+
+def _make_cookie(email, senha):
+    payload = base64.urlsafe_b64encode(
+        json.dumps({'e': email, 's': senha, 't': int(time.time())}).encode()
+    ).decode()
+    sig = hmac.new(_COOKIE_SECRET, payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def _decode_cookie(val):
+    if not val or '.' not in val:
+        return None
+    payload, sig = val.rsplit('.', 1)
+    expected = hmac.new(_COOKIE_SECRET, payload.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        return None
+    try:
+        data = json.loads(base64.urlsafe_b64decode(payload.encode()).decode())
+        if time.time() - float(data['t']) > _SESSION_TTL:
+            return None
+        return data['e'], data['s']
+    except Exception:
+        return None
+
+
+def _get_session():
+    return _decode_cookie(request.cookies.get('grex_session', ''))
+
+
+def _session_ok():
+    return _get_session() is not None
+
 
 # ── Tela de loading: injetada como primeiro filho do <body> pelo servidor ──
 # Aparece imediatamente (sem esperar JS/DOMContentLoaded). Só mostra fora de /eventos/check-in.
@@ -706,9 +730,7 @@ def grex_login_post():
         ok = bool(user and pwd)
 
     if ok:
-        _cleanup_sessions()
-        tok = secrets.token_urlsafe(32)
-        _sessions[tok] = {'ts': time.time(), 'email': user, 'senha': pwd}
+        tok = _make_cookie(user, pwd)
         _secure = request.is_secure
         if is_json:
             resp = Response(json.dumps({'ok': True}), content_type='application/json')
@@ -770,9 +792,9 @@ def firebase_proxy(host, path):
 
 @app.route('/grex-autologin-creds')
 def autologin_creds():
-    sess = _get_session()
-    if sess and sess.get('email') and sess.get('senha'):
-        email, senha = sess['email'], sess['senha']
+    creds = _get_session()
+    if creds:
+        email, senha = creds
     else:
         email, senha = GREX_EMAIL, GREX_SENHA
     resp = Response(
