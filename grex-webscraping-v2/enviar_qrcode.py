@@ -159,17 +159,40 @@ def enviar_por_nome(nome_busca):
             EC.presence_of_element_located((By.CSS_SELECTOR, "tr.table__row")))
         time.sleep(1)
 
-        linhas = driver.find_elements(By.CSS_SELECTOR, "tr.table__row")
         encontrado = False
-        for linha in linhas:
-            cels = linha.find_elements(By.TAG_NAME, "td")
-            if cels and nome_busca.lower() in cels[0].text.strip().lower():
-                _salvar_status(status="processando", modo="individual", nome=nome_busca,
-                               total=1, enviados=0, atual=nome_busca, concluido=False,
-                               start_ts=start_ts)
-                _enviar_linha(driver, linha)
-                encontrado = True
-                print(f"[QR] Enviado para {nome_busca}", flush=True)
+        pagina = 1
+        while not encontrado:
+            print(f"[QR] Buscando '{nome_busca}' na página {pagina}...", flush=True)
+            linhas = driver.find_elements(By.CSS_SELECTOR, "tr.table__row")
+            for linha in linhas:
+                cels = linha.find_elements(By.TAG_NAME, "td")
+                if cels and nome_busca.lower() in cels[0].text.strip().lower():
+                    _salvar_status(status="processando", modo="individual", nome=nome_busca,
+                                   total=1, enviados=0, atual=nome_busca, concluido=False,
+                                   start_ts=start_ts)
+                    _enviar_linha(driver, linha)
+                    encontrado = True
+                    print(f"[QR] Enviado para {nome_busca}", flush=True)
+                    break
+            if encontrado:
+                break
+            # Tentar próxima página
+            try:
+                next_btn = driver.find_element(
+                    By.CSS_SELECTOR,
+                    "button.mat-mdc-paginator-navigation-next, "
+                    "button.mat-paginator-navigation-next, "
+                    "button[aria-label='Next page']"
+                )
+                if next_btn.get_attribute("disabled") or not next_btn.is_enabled():
+                    break
+                driver.execute_script("arguments[0].click();", next_btn)
+                pagina += 1
+                time.sleep(1)
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "tr.table__row")))
+                time.sleep(0.5)
+            except Exception:
                 break
 
         if encontrado:

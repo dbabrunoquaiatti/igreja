@@ -1530,7 +1530,21 @@
         .eq-spinner { width:40px; height:40px; border:4px solid var(--gray-border); border-top-color:var(--purple-primary); border-radius:50%; animation:eq-spin 0.75s linear infinite; }
         @keyframes eq-spin { to { transform:rotate(360deg); } }
         .eq-loading-txt { font-size:14px; color:var(--text-light); font-family:'Poppins',sans-serif; font-weight:500; }
-        .equipes-toolbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .equipes-toolbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .eq-busca {
+            padding: 7px 16px;
+            border: 1px solid var(--gray-border);
+            border-radius: 20px;
+            font-size: 13px;
+            font-family: 'Lato', sans-serif;
+            outline: none;
+            width: 220px;
+            max-width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: var(--white);
+            color: var(--text-dark);
+        }
+        .eq-busca:focus { border-color: var(--purple-primary); box-shadow: 0 0 0 2px rgba(107,70,193,0.1); }
         .equipes-toolbar-btn {
             padding: 8px 18px;
             border: 1px solid var(--gray-border);
@@ -2012,8 +2026,9 @@
                     <div class="discipulado-container" style="padding:24px">
                         <div class="equipes-toolbar">
                             <button class="equipes-toolbar-btn" id="eqBtnEditar">✏️ Editar</button>
-                            <button class="equipes-toolbar-btn" id="eqBtnRegerar" disabled>↺ Regenerar</button>
+                            <button class="equipes-toolbar-btn" id="eqBtnRegerar">↺ Regenerar</button>
                             <button class="equipes-toolbar-btn" id="eqBtnPdf">📄 PDF</button>
+                            <input type="text" id="eqBuscaInput" class="eq-busca" placeholder="🔍 Buscar pessoa..." autocomplete="off">
                         </div>
                         <div class="eq-legenda">
                             <span class="eq-legenda-item">👑 Líder da equipe</span>
@@ -3665,11 +3680,10 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         function _eqBuildPresMap() {
             const map = {};
-            const PRESENTES = new Set(['sim','yes','true','1','x','presente','confirmado']);
             (allData || []).forEach(item => {
-                const p = String(item.presenca || '').toLowerCase().trim();
+                const p = String(item.presenca || '').trim();
                 if (!p) return;
-                map[item.nome] = PRESENTES.has(p);
+                map[item.nome] = isPresente(p);
             });
             return map;
         }
@@ -3707,10 +3721,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 return !t.includes('convidado') && !t.includes('encontrista') && !t.includes('guest');
             });
             if (apenasPresentes) {
-                servos = servos.filter(item => {
-                    const p = String(item.presenca || '').toLowerCase().trim();
-                    return p === 'sim' || p === 'yes' || p === 'true' || p === '1' || p === 'x' || p === 'presente' || p === 'confirmado';
-                });
+                servos = servos.filter(item => isPresente(item.presenca));
             }
 
             const temCol = servos.some(p => p.equipe && p.equipe.trim());
@@ -3913,7 +3924,6 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 _eqEditMode = on;
                 btnEditar.classList.toggle('eq-edit-active', on);
                 btnEditar.textContent = on ? '✓ Editar' : '✏️ Editar';
-                btnRegerar.disabled = !on;
                 _eqRenderGrid();
             }
 
@@ -3946,8 +3956,12 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         })();
 
         document.getElementById('eqBtnRegerar').addEventListener('click', () => {
-            if (!_eqEditMode || !allData || !allData.length) return;
-            _eqPerguntarFiltro(ap => _eqGerarComAnimacao(ap));
+            if (!allData || !allData.length) return;
+            _eqPerguntarFiltro(ap => {
+                try { localStorage.removeItem(_eqStorageKey()); } catch(_) {}
+                _eqState = null;
+                _eqGerarComAnimacao(ap);
+            });
         });
         document.getElementById('eqBtnPdf').addEventListener('click', () => {
             if (!_eqState) { alert('Nenhuma equipe gerada.'); return; }
