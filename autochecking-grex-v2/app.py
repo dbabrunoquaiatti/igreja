@@ -372,6 +372,7 @@ SCRIPT_SONS = r"""
     const d = document.createElement('div');
     d.id = 'grex-overlay';
     d.innerHTML = `
+      <button class="grex-fechar">&#x2715;</button>
       <div class="grex-card aviso">
         <div class="grex-circulo">
           <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
@@ -396,6 +397,7 @@ SCRIPT_SONS = r"""
     const d = document.createElement('div');
     d.id = 'grex-overlay';
     d.innerHTML = `
+      <button class="grex-fechar">&#x2715;</button>
       <div class="grex-card erro">
         <div class="grex-circulo">
           <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
