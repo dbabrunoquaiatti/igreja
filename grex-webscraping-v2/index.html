@@ -2026,7 +2026,7 @@
                     <div class="discipulado-container" style="padding:24px">
                         <div class="equipes-toolbar">
                             <button class="equipes-toolbar-btn" id="eqBtnEditar">✏️ Editar</button>
-                            <button class="equipes-toolbar-btn" id="eqBtnRegerar">↺ Regenerar</button>
+                            <button class="equipes-toolbar-btn" id="eqBtnRegerar" disabled>↺ Regenerar</button>
                             <button class="equipes-toolbar-btn" id="eqBtnPdf">📄 PDF</button>
                             <input type="text" id="eqBuscaInput" class="eq-busca" placeholder="🔍 Buscar pessoa..." autocomplete="off">
                         </div>
@@ -3811,6 +3811,25 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     </div>
                 </div>`;
             }).join('');
+            _eqAplicarBusca();
+        }
+
+        function _eqAplicarBusca() {
+            const input = document.getElementById('eqBuscaInput');
+            if (!input) return;
+            const q = input.value.toLowerCase().trim();
+            document.querySelectorAll('#equipesGrid .equipe-pessoa').forEach(el => {
+                const nome = (el.dataset.nome || '').toLowerCase();
+                el.style.display = !q || nome.includes(q) ? '' : 'none';
+            });
+            document.querySelectorAll('#equipesGrid .equipe-col').forEach(col => {
+                const hasVisible = [...col.querySelectorAll('.equipe-pessoa')].some(p => p.style.display !== 'none');
+                col.style.display = !q || hasVisible ? '' : 'none';
+            });
+            document.querySelectorAll('#equipesGrid .equipe-card').forEach(card => {
+                const hasVisible = [...card.querySelectorAll('.equipe-pessoa')].some(p => p.style.display !== 'none');
+                card.style.display = !q || hasVisible ? '' : 'none';
+            });
         }
 
         // ── Equipes: drag & drop + emoji picker via event delegation ─
@@ -3924,6 +3943,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 _eqEditMode = on;
                 btnEditar.classList.toggle('eq-edit-active', on);
                 btnEditar.textContent = on ? '✓ Editar' : '✏️ Editar';
+                btnRegerar.disabled = !on;
                 _eqRenderGrid();
             }
 
@@ -3956,7 +3976,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         })();
 
         document.getElementById('eqBtnRegerar').addEventListener('click', () => {
-            if (!allData || !allData.length) return;
+            if (!_eqEditMode || !allData || !allData.length) return;
             _eqPerguntarFiltro(ap => {
                 try { localStorage.removeItem(_eqStorageKey()); } catch(_) {}
                 _eqState = null;
