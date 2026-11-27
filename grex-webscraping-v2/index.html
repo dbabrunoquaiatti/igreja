@@ -1501,15 +1501,7 @@
         }
         .equipe-emoji-btn:hover { background: var(--gray-border); }
         .equipe-emoji-ph { font-size: 11px; color: var(--text-lighter); }
-        .equipe-pres-btn {
-            flex-shrink: 0;
-            background: none; border: none;
-            cursor: pointer; font-size: 14px; line-height: 1;
-            padding: 2px 2px; border-radius: 4px;
-            min-width: 20px; text-align: center;
-            transition: background 0.15s;
-        }
-        .equipe-pres-btn:hover { background: var(--gray-border); }
+        .equipe-pres-icon { flex-shrink: 0; font-size: 14px; line-height: 1; min-width: 20px; text-align: center; }
         .equipe-pres-ph { font-size: 10px; color: var(--text-lighter); }
         .eq-emoji-picker {
             position: fixed;
@@ -3671,17 +3663,15 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             _eqEmojis = {};
         }
 
-        let _eqPresence = {};
-        function _eqPresenceKey() { return _eqStorageKey() + '_pr'; }
-        function _eqSavePresence() {
-            try { localStorage.setItem(_eqPresenceKey(), JSON.stringify(_eqPresence)); } catch(_) {}
-        }
-        function _eqLoadPresence() {
-            try {
-                const s = localStorage.getItem(_eqPresenceKey());
-                if (s) { _eqPresence = JSON.parse(s); return; }
-            } catch(_) {}
-            _eqPresence = {};
+        function _eqBuildPresMap() {
+            const map = {};
+            const PRESENTES = new Set(['sim','yes','true','1','x','presente','confirmado']);
+            (allData || []).forEach(item => {
+                const p = String(item.presenca || '').toLowerCase().trim();
+                if (!p) return;
+                map[item.nome] = PRESENTES.has(p);
+            });
+            return map;
         }
 
         // ── Equipes: modal de filtro por presença ────────────────
@@ -3768,14 +3758,15 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             if (!_eqState) return;
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
 
+            const _presMap = _eqBuildPresMap();
             function colHtml(arr, eq, g, label, cls) {
                 const items = arr.map(nome => {
                     const emoji = _eqEmojis[nome] || '';
                     const emojiBtnContent = emoji || '<span class="equipe-emoji-ph">·</span>';
-                    const pres = _eqPresence[nome];
-                    const presBtnContent = pres === true ? '✅' : pres === false ? '❌' : '<span class="equipe-pres-ph">·</span>';
+                    const pres = _presMap[nome];
+                    const presIcon = pres === true ? '✅' : pres === false ? '❌' : '<span class="equipe-pres-ph">·</span>';
                     return `<div class="equipe-pessoa" draggable="${_eqEditMode}" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
-                        <button class="equipe-pres-btn" draggable="false" data-pres-nome="${esc(nome)}" title="Presença">${presBtnContent}</button>
+                        <span class="equipe-pres-icon">${presIcon}</span>
                         <button class="equipe-emoji-btn" draggable="false" data-emoji-nome="${esc(nome)}" title="Emblema">${emojiBtnContent}</button>
                         <span class="equipe-pessoa-nome">${esc(nome)}</span>
                         <button class="equipe-del-btn" draggable="false" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
@@ -3892,18 +3883,6 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 _eqRenderGrid();
             });
             grid.addEventListener('click', e => {
-                const presBtn = e.target.closest('.equipe-pres-btn');
-                if (presBtn) {
-                    e.stopPropagation();
-                    const nome = presBtn.dataset.presNome;
-                    const cur = _eqPresence[nome];
-                    if (cur === undefined || cur === null) _eqPresence[nome] = true;
-                    else if (cur === true) _eqPresence[nome] = false;
-                    else delete _eqPresence[nome];
-                    _eqSavePresence();
-                    _eqRenderGrid();
-                    return;
-                }
                 const emojiBtn = e.target.closest('.equipe-emoji-btn');
                 if (emojiBtn) {
                     e.stopPropagation();
@@ -3975,11 +3954,14 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             const configEquipes = (window.CONFIG.EQUIPES||'').split(',').map(s=>s.trim()).filter(Boolean);
             const EMOJI_LEGEND = { '👑': 'Líder da equipe', '🛡️': 'Líder', '🌾': 'Servo' };
             const PILL = 'display:inline-block;background:#ede9fe;color:#6b46c1;border-radius:20px;padding:2px 9px;font-size:10px;white-space:nowrap;margin-left:6px;font-weight:600;';
+            const _pdfPresMap = _eqBuildPresMap();
             const fmtNome = nome => {
                 if (!nome) return '';
+                const pres = _pdfPresMap[nome];
+                const presIcon = pres === true ? '✅ ' : pres === false ? '❌ ' : '';
                 const em = _eqEmojis[nome];
                 const lbl = em && EMOJI_LEGEND[em];
-                return esc(nome) + (lbl ? `<span style="${PILL}">${em} ${lbl}</span>` : '');
+                return presIcon + esc(nome) + (lbl ? `<span style="${PILL}">${em} ${lbl}</span>` : '');
             };
             const legendaPills = Object.entries(EMOJI_LEGEND)
                 .map(([em, lbl]) => `<span style="${PILL}">${em} ${lbl}</span>`).join(' ');
@@ -4019,7 +4001,6 @@ ${tabelas}
         // ── Equipes: ponto de entrada ────────────────────────────
         function renderizarEquipes() {
             _eqLoadEmojis();
-            _eqLoadPresence();
             const grid = document.getElementById('equipesGrid');
             if (!grid) return;
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
