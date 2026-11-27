@@ -408,7 +408,9 @@ SCRIPT_SONS = r"""
       txt.includes('inv') || txt.includes('nao encontrado') ||
       txt.includes('não encontrado') || txt.includes('falha') ||
       txt.includes('nao foi') || txt.includes('não foi') ||
-      txt.includes('fail');
+      txt.includes('fail') || txt.includes('encontramos') ||
+      txt.includes('já fez') || txt.includes('ja fez') ||
+      txt.includes('confira');
     if (eSucesso) {
       ultimoDisparo = agora;
       tocarSucesso();

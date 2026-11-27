@@ -1462,16 +1462,49 @@
         .equipe-col.m .equipe-col-title { color: #9d174d; }
         .equipe-col.u .equipe-col-title { color: var(--text-lighter); }
         .equipe-pessoa {
+            display: flex;
+            align-items: center;
+            gap: 4px;
             font-size: 12px;
             color: var(--text-dark);
-            padding: 3px 0;
+            padding: 4px 2px;
             border-bottom: 1px solid var(--gray-border);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            cursor: grab;
+            border-radius: 4px;
+            transition: background 0.15s;
         }
         .equipe-pessoa:last-child { border-bottom: none; }
+        .equipe-pessoa:hover { background: var(--lighter-gray); }
+        .equipe-pessoa.eq-dragging { opacity: 0.35; }
+        .equipe-pessoa-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .equipe-del-btn {
+            flex-shrink: 0;
+            background: none; border: none;
+            color: var(--text-lighter);
+            cursor: pointer; font-size: 14px;
+            line-height: 1; padding: 0 2px;
+            border-radius: 3px;
+            transition: color 0.15s;
+        }
+        .equipe-del-btn:hover { color: #ef4444; }
+        .equipe-col.eq-dragover {
+            background: #f3eeff;
+            outline: 2px dashed var(--purple-primary);
+            border-radius: 8px;
+        }
         .equipe-vazia { font-size: 12px; color: var(--text-lighter); font-style: italic; }
+        .equipes-toolbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .equipes-toolbar-btn {
+            padding: 8px 18px;
+            border: 1px solid var(--gray-border);
+            border-radius: 8px;
+            background: var(--white);
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px; font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .equipes-toolbar-btn:hover { border-color: var(--purple-primary); color: var(--purple-primary); }
         .equipes-sem-config {
             background: var(--white);
             border: 1px solid var(--gray-border);
@@ -1935,6 +1968,10 @@
                 </div>
                 <div id="equipes" class="page-section">
                     <div class="discipulado-container" style="padding:24px">
+                        <div class="equipes-toolbar">
+                            <button class="equipes-toolbar-btn" id="eqBtnRegerar">↺ Regenerar</button>
+                            <button class="equipes-toolbar-btn" id="eqBtnPdf">📄 PDF</button>
+                        </div>
                         <div id="equipesGrid" class="equipes-grid"></div>
                     </div>
                 </div>
@@ -3487,117 +3524,252 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             window._abrirExport('Exportar Inscritos Rejeitados', gerarPDFRejeitados, exportarExcelRejeitados);
         });
 
-        function renderizarEquipes() {
-            const grid = document.getElementById('equipesGrid');
-            if (!grid) return;
+        // ── Equipes: nomes brasileiros → gênero ─────────────────
+        const _eqNomesM = new Set('JOAO,JOSE,ANTONIO,FRANCISCO,CARLOS,PAULO,PEDRO,LUCAS,LUIZ,MARCOS,GABRIEL,RAFAEL,DANIEL,MARCELO,FERNANDO,ANDERSON,RODRIGO,GUILHERME,EDUARDO,DOUGLAS,VITOR,VICTOR,MATEUS,MATHEUS,THIAGO,LEANDRO,FABIO,SERGIO,ROBERTO,MARIO,RAIMUNDO,MANOEL,JORGE,ALEX,ALEXANDRE,ALAN,ALLAN,ANDRE,ANDREI,ARTHUR,BRENO,CAIO,CHRISTIAN,CRISTIAN,CRISTIANO,DAVI,DIOGO,EDER,ELIAS,EMERSON,ERICK,ERIK,EVERTON,EWERTON,FABIANO,FILIPE,FLAVIO,FRANK,FRANKLIN,GEOVANE,GIOVANI,GLEISON,GUSTAVO,HEITOR,HENRIQUE,HUGO,IGOR,IAN,IVAN,JEFFERSON,JEFERSON,JONATHAN,JOSUE,JULIO,JUNIOR,KAIQUE,KAIO,KENNEDY,KEVEN,KEVIN,LEVI,LEO,LEON,LEONARDO,LUAN,LUCIANO,MARCIO,MAXWELL,MAYCON,MAYKON,MICHEL,MIGUEL,MOISES,NATHANAEL,NATHAN,NICOLAS,NATAN,PABLO,PATRICK,RAPHAEL,RENAN,RENATO,RICHARD,ROGERIO,ROMARIO,RONALDO,SAMUEL,SAULO,SAVIO,SILAS,SILVIO,TIAGO,TIMOTEO,THALES,VINICIUS,WAGNER,WALTER,WASHINGTON,WELLINGTON,WILLIAN,WILLIAM,WILSON,YURI,YAGO,ZAQUEU,LAZARO,EZEQUIEL,CAUE,ENZO,RYAN,LUCA,ISAAC,CALEB,JONAS,JOSIAS,UZIAS,ZACARIAS,DIEISON,WAGNNER,WELINGTON,NOAH,ABRAAO,ADAO,CALEB,JOAS,JOSAFA'.split(','));
+        const _eqNomesF = new Set('MARIA,ANA,JULIANA,ADRIANA,FERNANDA,PATRICIA,ALINE,SANDRA,CLAUDIA,DEBORA,CAMILA,BRUNA,AMANDA,LETICIA,JESSICA,LARISSA,NATALIA,VANESSA,SIMONE,CRISTIANE,CRISTINA,DANIELA,GABRIELA,KAROLINE,CAROLINE,CAROLINA,CAROL,CARLA,CARINA,VITORIA,VICTORIA,REBECA,RAQUEL,PRISCILA,PRISCILLA,PAULA,PAMELA,PALOMA,MILENA,MELISSA,MARIANA,MARCELA,LUANA,LUCIANA,LAIS,LAILA,LEILA,KAREN,KARINA,KEILA,KELLY,JAQUELINE,JANAINA,ISADORA,ISABELA,ISABELLA,HELOISA,HELEN,GIOVANA,GIOVANNA,GISELE,GISLAINE,EVELYN,ERICA,ELIANE,ELIANA,EDILAINE,EDNA,EDILENE,DEISE,DAIANE,DAIANA,CINTIA,CIBELE,BIANCA,BEATRIZ,BARBARA,ARIANE,ARIELLY,ALICE,ALESSANDRA,AGATHA,ABIGAIL,NATHALIA,NATHALIE,NATASHA,NICOLI,NICOLLE,NICOLE,RENATA,ROSANA,ROSANGELA,ROSELI,ROSE,RUTH,SABRINA,SAMARA,SAMANTHA,SARA,SARAH,SELMA,SILVANA,SIMONI,SONIA,SUELI,SUELLEN,SUSANA,TAIS,TAMARA,TAMIRES,TATIANE,TATIANA,TEREZA,THAMIRES,THAIS,VALERIA,VERA,VERONICA,WANESSA,YASMIN,ZENAIDE,RUTE,ESTER,NOEMI,MIRIAM,ANNA,JOCABED,VASTI,LIA,RACHEL,REBEKA,REBEKAH,DALILA,REGIANE,RENATA,ROSIANE,ROSIELE,SILVANA'.split(','));
 
+        function _eqGeneroNome(nomeCompleto) {
+            const p = String(nomeCompleto || '').trim().split(/\s+/)[0]
+                .toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            if (_eqNomesM.has(p)) return 'M';
+            if (_eqNomesF.has(p)) return 'F';
+            return 'U';
+        }
+
+        function _eqDetectarGenero(item) {
+            const s = String(item.sexo || '').toLowerCase().trim();
+            if (s) {
+                if (s.startsWith('m') || s.includes('masc') || s.includes('home') || s === 'h') return 'M';
+                if (s.startsWith('f') || s.includes('femi') || s.includes('mulh') || s === 'f') return 'F';
+            }
+            return _eqGeneroNome(item.nome);
+        }
+
+        // ── Equipes: estado persistido ───────────────────────────
+        let _eqState = null;
+        let _eqDrag  = null;
+
+        function _eqStorageKey() {
+            const eq = (window.CONFIG.EQUIPES || '').replace(/\s/g, '');
+            const pt = (window.CONFIG.PANEL_TITLE || 'x');
+            return 'grex_eq__' + (pt + eq).split('').reduce((a,c) => (Math.imul(31,a)+c.charCodeAt(0))|0, 0);
+        }
+        function _eqSave() {
+            try { localStorage.setItem(_eqStorageKey(), JSON.stringify(_eqState)); } catch(_) {}
+        }
+        function _eqLoad() {
+            try {
+                const s = localStorage.getItem(_eqStorageKey());
+                if (s) { _eqState = JSON.parse(s); return true; }
+            } catch(_) {}
+            return false;
+        }
+
+        // ── Equipes: gerar distribuição automática ───────────────
+        function _eqGerarNovo() {
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
-            if (!configEquipes.length) {
-                grid.innerHTML = '<div class="equipes-sem-config">Configure a variável <strong>EQUIPES</strong> no ambiente (ex: <code>LARANJA,AMARELO,VERDE</code>).</div>';
-                return;
-            }
+            const eqs = configEquipes.map(e => e.toUpperCase());
+            _eqState = {};
+            eqs.forEach(e => { _eqState[e] = { M: [], F: [], U: [] }; });
 
-            if (!allData || allData.length === 0) {
-                grid.innerHTML = '<div class="equipes-sem-config">Nenhum dado carregado.</div>';
-                return;
-            }
-
-            // Filtrar apenas servos (não convidados/encontristas)
-            const servos = allData.filter(item => {
+            const servos = (allData || []).filter(item => {
                 const t = String(item.tipoInscricao || '').toLowerCase().trim();
                 return !t.includes('convidado') && !t.includes('encontrista') && !t.includes('guest');
             });
 
-            function detectarGenero(item) {
-                const s = String(item.sexo || '').toLowerCase().trim();
-                if (!s) return 'U';
-                if (s.startsWith('m') || s.includes('masc') || s.includes('home') || s === 'h') return 'M';
-                if (s.startsWith('f') || s.includes('femi') || s.includes('mulh') || s === 'f') return 'F';
-                return 'U';
-            }
+            const temCol = servos.some(p => p.equipe && p.equipe.trim());
 
-            // Verificar se há coluna equipe preenchida
-            const temEquipeColuna = servos.some(p => p.equipe && p.equipe.trim());
-
-            let distribuicao = {}; // equipeNome -> { M: [], F: [], U: [] }
-            configEquipes.forEach(e => { distribuicao[e.toUpperCase()] = { M: [], F: [], U: [] }; });
-
-            if (temEquipeColuna) {
-                // Agrupar pelo campo equipe da planilha
+            if (temCol) {
                 servos.forEach(p => {
                     const eq = (p.equipe || '').trim().toUpperCase();
-                    const g  = detectarGenero(p);
-                    // Encontrar equipe mais próxima na config (match exato ou inclui)
-                    let chave = configEquipes.find(e => e.toUpperCase() === eq);
-                    if (!chave) chave = configEquipes.find(e => eq.includes(e.toUpperCase()) || e.toUpperCase().includes(eq));
-                    if (!chave) return; // equipe não reconhecida, pular
-                    distribuicao[chave.toUpperCase()][g].push(p.nome);
+                    const g  = _eqDetectarGenero(p);
+                    let chave = eqs.find(e => e === eq) || eqs.find(e => eq.includes(e) || e.includes(eq));
+                    if (chave) _eqState[chave][g].push(p.nome);
                 });
             } else {
-                // Distribuição automática: intercala M e F para equilibrar cada equipe
-                const sortNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR');
-                const homens   = servos.filter(p => detectarGenero(p) === 'M').sort(sortNome);
-                const mulheres = servos.filter(p => detectarGenero(p) === 'F').sort(sortNome);
-                const outros   = servos.filter(p => detectarGenero(p) === 'U').sort(sortNome);
-                // Intercalar H e F para que o round-robin espalhe igualmente os dois géneros
-                const intercalados = [];
-                const maxGn = Math.max(homens.length, mulheres.length);
-                for (let i = 0; i < maxGn; i++) {
-                    if (i < homens.length)   intercalados.push({ nome: homens[i].nome,   g: 'M' });
-                    if (i < mulheres.length) intercalados.push({ nome: mulheres[i].nome, g: 'F' });
+                const srt = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR');
+                const H = servos.filter(p => _eqDetectarGenero(p) === 'M').sort(srt);
+                const F = servos.filter(p => _eqDetectarGenero(p) === 'F').sort(srt);
+                const U = servos.filter(p => _eqDetectarGenero(p) === 'U').sort(srt);
+                const intercal = [];
+                const mx = Math.max(H.length, F.length);
+                for (let i = 0; i < mx; i++) {
+                    if (i < H.length) intercal.push({ nome: H[i].nome, g: 'M' });
+                    if (i < F.length) intercal.push({ nome: F[i].nome, g: 'F' });
                 }
-                outros.forEach(p => intercalados.push({ nome: p.nome, g: 'U' }));
-                const eqs = configEquipes.map(e => e.toUpperCase());
-                intercalados.forEach((p, i) => distribuicao[eqs[i % eqs.length]][p.g].push(p.nome));
+                U.forEach(p => intercal.push({ nome: p.nome, g: 'U' }));
+                intercal.forEach((p, i) => _eqState[eqs[i % eqs.length]][p.g].push(p.nome));
             }
 
-            // Cores fixas por nome de equipe
-            const CORES = {
-                'LARANJA':'#f97316','AMARELO':'#eab308','VERDE':'#16a34a','AZUL':'#2563eb',
-                'VERMELHO':'#dc2626','ROSA':'#ec4899','ROXO':'#7c3aed','BRANCO':'#6b7280',
-                'PRETO':'#1f2937','CINZA':'#6b7280'
-            };
-            function corEquipe(nome) {
-                for (const [k,v] of Object.entries(CORES)) {
-                    if (nome.includes(k)) return v;
-                }
-                return 'var(--purple-primary)';
-            }
+            Object.values(_eqState).forEach(d => {
+                ['M','F','U'].forEach(g => d[g].sort((a,b) => a.localeCompare(b,'pt-BR')));
+            });
+            _eqSave();
+        }
 
-            function listaPessoas(arr) {
-                if (!arr.length) return '<span class="equipe-vazia">—</span>';
-                return arr.map(n => `<div class="equipe-pessoa" title="${esc(n)}">${esc(n)}</div>`).join('');
+        // ── Equipes: renderizar grid ─────────────────────────────
+        const _EQ_CORES = { LARANJA:'#f97316', AMARELO:'#eab308', VERDE:'#16a34a', AZUL:'#2563eb',
+                            VERMELHO:'#dc2626', ROSA:'#ec4899', ROXO:'#7c3aed', CINZA:'#6b7280', PRETO:'#1f2937' };
+        function _eqCor(nome) {
+            for (const [k,v] of Object.entries(_EQ_CORES)) if (nome.includes(k)) return v;
+            return 'var(--purple-primary)';
+        }
+
+        function _eqRenderGrid() {
+            const grid = document.getElementById('equipesGrid');
+            if (!grid || !_eqState) return;
+            const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
+
+            function colHtml(arr, eq, g, label, cls) {
+                const items = arr.map(nome =>
+                    `<div class="equipe-pessoa" draggable="true" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
+                        <span class="equipe-pessoa-nome">${esc(nome)}</span>
+                        <button class="equipe-del-btn" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
+                    </div>`
+                ).join('');
+                return `<div class="equipe-col ${cls}" data-eq="${eq}" data-g="${g}">
+                    <div class="equipe-col-title">${label}</div>
+                    ${items || '<span class="equipe-vazia">—</span>'}
+                </div>`;
             }
 
             grid.innerHTML = configEquipes.map(nomeConfig => {
                 const chave = nomeConfig.toUpperCase();
-                const d = distribuicao[chave] || { M: [], F: [], U: [] };
-                const cor = corEquipe(chave);
+                const d = _eqState[chave] || { M:[], F:[], U:[] };
+                const cor = _eqCor(chave);
                 const temU = d.U.length > 0;
-                return `
-                <div class="equipe-card">
+                return `<div class="equipe-card">
                     <div class="equipe-header" style="border-top:4px solid ${cor}">
                         <span class="equipe-nome" style="color:${cor}">${esc(nomeConfig)}</span>
                         <div class="equipe-badges">
                             <span class="equipe-badge h">♂ ${d.M.length}</span>
                             <span class="equipe-badge m">♀ ${d.F.length}</span>
                             ${temU ? `<span class="equipe-badge total">? ${d.U.length}</span>` : ''}
-                            <span class="equipe-badge total">${d.M.length + d.F.length + d.U.length}</span>
+                            <span class="equipe-badge total">${d.M.length+d.F.length+d.U.length}</span>
                         </div>
                     </div>
                     <div class="equipe-body">
-                        <div class="equipe-col h">
-                            <div class="equipe-col-title">♂ Homens</div>
-                            ${listaPessoas(d.M)}
-                        </div>
-                        <div class="equipe-col m">
-                            <div class="equipe-col-title">♀ Mulheres</div>
-                            ${listaPessoas(d.F)}
-                        </div>
-                        ${temU ? `<div class="equipe-col u"><div class="equipe-col-title">? Sem gênero</div>${listaPessoas(d.U)}</div>` : ''}
+                        ${colHtml(d.M, chave,'M','♂ Homens','h')}
+                        ${colHtml(d.F, chave,'F','♀ Mulheres','m')}
+                        ${temU ? colHtml(d.U, chave,'U','? Sem gênero','u') : ''}
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        // ── Equipes: drag & drop via event delegation ────────────
+        (function() {
+            const grid = document.getElementById('equipesGrid');
+            if (!grid) return;
+
+            grid.addEventListener('dragstart', e => {
+                const p = e.target.closest('.equipe-pessoa');
+                if (!p) return;
+                _eqDrag = { nome: p.dataset.nome, eq: p.dataset.eq, g: p.dataset.g };
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => p.classList.add('eq-dragging'), 0);
+            });
+            grid.addEventListener('dragend', e => {
+                const p = e.target.closest('.equipe-pessoa');
+                if (p) p.classList.remove('eq-dragging');
+            });
+            grid.addEventListener('dragover', e => {
+                e.preventDefault();
+                const col = e.target.closest('.equipe-col');
+                grid.querySelectorAll('.eq-dragover').forEach(c => c.classList.remove('eq-dragover'));
+                if (col) col.classList.add('eq-dragover');
+            });
+            grid.addEventListener('dragleave', e => {
+                if (!grid.contains(e.relatedTarget))
+                    grid.querySelectorAll('.eq-dragover').forEach(c => c.classList.remove('eq-dragover'));
+            });
+            grid.addEventListener('drop', e => {
+                e.preventDefault();
+                grid.querySelectorAll('.eq-dragover').forEach(c => c.classList.remove('eq-dragover'));
+                const col = e.target.closest('.equipe-col');
+                if (!col || !_eqDrag || !_eqState) return;
+                const toEq = col.dataset.eq, toG = col.dataset.g;
+                const { nome, eq: fromEq, g: fromG } = _eqDrag;
+                _eqDrag = null;
+                if (fromEq === toEq && fromG === toG) return;
+                _eqState[fromEq][fromG] = _eqState[fromEq][fromG].filter(n => n !== nome);
+                if (!_eqState[toEq][toG].includes(nome)) {
+                    _eqState[toEq][toG].push(nome);
+                    _eqState[toEq][toG].sort((a,b) => a.localeCompare(b,'pt-BR'));
+                }
+                _eqSave();
+                _eqRenderGrid();
+            });
+            grid.addEventListener('click', e => {
+                const btn = e.target.closest('.equipe-del-btn');
+                if (!btn) return;
+                const { delNome: nome, delEq: eq, delG: g } = btn.dataset;
+                if (!_eqState[eq]) return;
+                _eqState[eq][g] = _eqState[eq][g].filter(n => n !== nome);
+                _eqSave();
+                _eqRenderGrid();
+            });
+        })();
+
+        // ── Equipes: botões toolbar ──────────────────────────────
+        document.getElementById('eqBtnRegerar').addEventListener('click', () => {
+            if (!allData || !allData.length) return;
+            _eqGerarNovo();
+            _eqRenderGrid();
+        });
+        document.getElementById('eqBtnPdf').addEventListener('click', () => {
+            if (!_eqState) { alert('Nenhuma equipe gerada.'); return; }
+            const configEquipes = (window.CONFIG.EQUIPES||'').split(',').map(s=>s.trim()).filter(Boolean);
+            const tabelas = configEquipes.map(nomeConfig => {
+                const chave = nomeConfig.toUpperCase();
+                const d = _eqState[chave] || {M:[],F:[],U:[]};
+                const mulheres = [...d.F, ...d.U];
+                const total = d.M.length + mulheres.length;
+                const mx = Math.max(d.M.length, mulheres.length, 1);
+                let rows = '';
+                for(let i=0;i<mx;i++)
+                    rows += `<tr><td>${esc(d.M[i]||'')}</td><td>${esc(mulheres[i]||'')}</td></tr>`;
+                const cor = _eqCor(chave);
+                return `<div style="margin-bottom:20px;break-inside:avoid">
+                    <div style="background:${cor};color:#fff;padding:8px 14px;font-family:Poppins,sans-serif;font-size:14px;font-weight:700;border-radius:6px 6px 0 0">
+                        ${esc(nomeConfig)} &mdash; ${total} pessoas &nbsp;|&nbsp; ♂ ${d.M.length} &nbsp;♀ ${mulheres.length}
+                    </div>
+                    <table><thead><tr><th>♂ Homens</th><th>♀ Mulheres</th></tr></thead><tbody>${rows}</tbody></table>
+                </div>`;
+            }).join('');
+            abrirRelatorio(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Equipes</title>${estiloRelatorio}
+<style>h1{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px;color:#6b46c1}
+thead tr{background:#f3f4f6}th,td{padding:6px 10px;border:1px solid #e5e7eb;font-size:12px}
+</style></head><body>
+<h1>Equipes — Encontro</h1>
+<div class="subtitle">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+${tabelas}
+<div class="footer">Painel ADM — Encontro</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`);
+        });
+
+        // ── Equipes: ponto de entrada ────────────────────────────
+        function renderizarEquipes() {
+            const grid = document.getElementById('equipesGrid');
+            if (!grid) return;
+            const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!configEquipes.length) {
+                grid.innerHTML = '<div class="equipes-sem-config">Configure a variável <strong>EQUIPES</strong> no ambiente (ex: <code>LARANJA,AMARELO,VERDE</code>).</div>';
+                return;
+            }
+            if (!allData || !allData.length) {
+                grid.innerHTML = '<div class="equipes-sem-config">Nenhum dado carregado.</div>';
+                return;
+            }
+            // Usar estado salvo; se não existir ou as equipes mudaram, gerar novo
+            const eqs = configEquipes.map(e => e.toUpperCase());
+            const estadoValido = _eqState && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
+            if (!estadoValido && !_eqLoad()) _eqGerarNovo();
+            const estadoAposLoad = _eqState && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
+            if (!estadoAposLoad) _eqGerarNovo();
+            _eqRenderGrid();
         }
 
         // Toggle do menu
