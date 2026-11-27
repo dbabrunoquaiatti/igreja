@@ -3534,14 +3534,21 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     distribuicao[chave.toUpperCase()][g].push(p.nome);
                 });
             } else {
-                // Distribuição automática round-robin por gênero
-                const homens   = servos.filter(p => detectarGenero(p) === 'M').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
-                const mulheres = servos.filter(p => detectarGenero(p) === 'F').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
-                const outros   = servos.filter(p => detectarGenero(p) === 'U').map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
+                // Distribuição automática: intercala M e F para equilibrar cada equipe
+                const sortNome = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR');
+                const homens   = servos.filter(p => detectarGenero(p) === 'M').sort(sortNome);
+                const mulheres = servos.filter(p => detectarGenero(p) === 'F').sort(sortNome);
+                const outros   = servos.filter(p => detectarGenero(p) === 'U').sort(sortNome);
+                // Intercalar H e F para que o round-robin espalhe igualmente os dois géneros
+                const intercalados = [];
+                const maxGn = Math.max(homens.length, mulheres.length);
+                for (let i = 0; i < maxGn; i++) {
+                    if (i < homens.length)   intercalados.push({ nome: homens[i].nome,   g: 'M' });
+                    if (i < mulheres.length) intercalados.push({ nome: mulheres[i].nome, g: 'F' });
+                }
+                outros.forEach(p => intercalados.push({ nome: p.nome, g: 'U' }));
                 const eqs = configEquipes.map(e => e.toUpperCase());
-                homens.forEach((n,i)   => distribuicao[eqs[i % eqs.length]].M.push(n));
-                mulheres.forEach((n,i) => distribuicao[eqs[i % eqs.length]].F.push(n));
-                outros.forEach((n,i)   => distribuicao[eqs[i % eqs.length]].U.push(n));
+                intercalados.forEach((p, i) => distribuicao[eqs[i % eqs.length]][p.g].push(p.nome));
             }
 
             // Cores fixas por nome de equipe
