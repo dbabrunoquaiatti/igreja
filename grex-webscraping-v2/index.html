@@ -1410,10 +1410,9 @@
             .toast-check         { font-size: 15px; }
         }
         /* ── Equipes ── */
-        .equipes-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+        .equipes-grid { display: flex; flex-direction: column; gap: 20px; }
         .equipe-card {
-            flex: 1 1 calc(33.33% - 14px);
-            min-width: 280px;
+            width: 100%;
             background: var(--white);
             border: 2px solid var(--gray-border);
             border-radius: 16px;
@@ -1487,6 +1486,38 @@
             transition: color 0.15s;
         }
         .equipe-del-btn:hover { color: #ef4444; }
+        .equipe-emoji-btn {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            padding: 2px 4px;
+            border-radius: 6px;
+            transition: background 0.15s;
+            min-width: 22px;
+            text-align: center;
+        }
+        .equipe-emoji-btn:hover { background: var(--gray-border); }
+        .equipe-emoji-ph { font-size: 11px; color: var(--text-lighter); }
+        .eq-emoji-picker {
+            position: fixed;
+            z-index: 3100;
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            gap: 2px;
+            padding: 6px;
+        }
+        .eq-emoji-picker.open { display: flex; align-items: center; }
+        .eq-emoji-picker button { font-size: 20px; border: none; background: none; cursor: pointer; border-radius: 8px; padding: 5px 7px; line-height: 1; transition: background 0.15s; }
+        .eq-emoji-picker button:hover { background: var(--lighter-gray); }
+        .eq-pick-rem { font-size: 13px !important; color: var(--text-lighter); }
+        .eq-legenda { display: flex; gap: 20px; margin-bottom: 16px; font-size: 12px; color: var(--text-light); flex-wrap: wrap; align-items: center; }
+        .eq-legenda-item { display: flex; align-items: center; gap: 5px; }
         .equipe-col.eq-dragover {
             background: #f3eeff;
             outline: 2px dashed var(--purple-primary);
@@ -1976,6 +2007,10 @@
                             <button class="equipes-toolbar-btn" id="eqBtnRegerar">↺ Regenerar</button>
                             <button class="equipes-toolbar-btn" id="eqBtnPdf">📄 PDF</button>
                         </div>
+                        <div class="eq-legenda">
+                            <span class="eq-legenda-item">👑 Líder da equipe</span>
+                            <span class="eq-legenda-item">🛡️ Defesa</span>
+                        </div>
                         <div id="equipesGrid" class="equipes-grid"></div>
                     </div>
                 </div>
@@ -2011,6 +2046,13 @@
             <div class="admin-modal-icon">🔒</div>
             <div class="admin-modal-text">Contate o Administrador do sistema</div>
         </div>
+    </div>
+
+    <div id="eqEmojiPicker" class="eq-emoji-picker">
+        <button data-pick="👑" title="Líder da equipe">👑</button>
+        <button data-pick="🛡️" title="Defesa">🛡️</button>
+        <button data-pick="🌾" title="Trigo">🌾</button>
+        <button data-pick="" class="eq-pick-rem" title="Remover emblema">✕</button>
     </div>
 
     <div class="export-overlay" id="eqFiltroOverlay">
@@ -3547,7 +3589,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         // ── Equipes: nomes brasileiros → gênero ─────────────────
         const _eqNomesM = new Set('JOAO,JOSE,ANTONIO,FRANCISCO,CARLOS,PAULO,PEDRO,LUCAS,LUIZ,MARCOS,GABRIEL,RAFAEL,DANIEL,MARCELO,FERNANDO,ANDERSON,RODRIGO,GUILHERME,EDUARDO,DOUGLAS,VITOR,VICTOR,MATEUS,MATHEUS,THIAGO,LEANDRO,FABIO,SERGIO,ROBERTO,MARIO,RAIMUNDO,MANOEL,JORGE,ALEX,ALEXANDRE,ALAN,ALLAN,ANDRE,ANDREI,ARTHUR,BRENO,CAIO,CHRISTIAN,CRISTIAN,CRISTIANO,DAVI,DIOGO,EDER,ELIAS,EMERSON,ERICK,ERIK,EVERTON,EWERTON,FABIANO,FILIPE,FLAVIO,FRANK,FRANKLIN,GEOVANE,GIOVANI,GLEISON,GUSTAVO,HEITOR,HENRIQUE,HUGO,IGOR,IAN,IVAN,JEFFERSON,JEFERSON,JONATHAN,JOSUE,JULIO,JUNIOR,KAIQUE,KAIO,KENNEDY,KEVEN,KEVIN,LEVI,LEO,LEON,LEONARDO,LUAN,LUCIANO,MARCIO,MAXWELL,MAYCON,MAYKON,MICHEL,MIGUEL,MOISES,NATHANAEL,NATHAN,NICOLAS,NATAN,PABLO,PATRICK,RAPHAEL,RENAN,RENATO,RICHARD,ROGERIO,ROMARIO,RONALDO,SAMUEL,SAULO,SAVIO,SILAS,SILVIO,TIAGO,TIMOTEO,THALES,VINICIUS,WAGNER,WALTER,WASHINGTON,WELLINGTON,WILLIAN,WILLIAM,WILSON,YURI,YAGO,ZAQUEU,LAZARO,EZEQUIEL,CAUE,ENZO,RYAN,LUCA,ISAAC,CALEB,JONAS,JOSIAS,UZIAS,ZACARIAS,DIEISON,WAGNNER,WELINGTON,NOAH,ABRAAO,ADAO,CALEB,JOAS,JOSAFA'.split(','));
-        const _eqNomesF = new Set('MARIA,ANA,JULIANA,ADRIANA,FERNANDA,PATRICIA,ALINE,SANDRA,CLAUDIA,DEBORA,CAMILA,BRUNA,AMANDA,LETICIA,JESSICA,LARISSA,NATALIA,VANESSA,SIMONE,CRISTIANE,CRISTINA,DANIELA,GABRIELA,KAROLINE,CAROLINE,CAROLINA,CAROL,CARLA,CARINA,VITORIA,VICTORIA,REBECA,RAQUEL,PRISCILA,PRISCILLA,PAULA,PAMELA,PALOMA,MILENA,MELISSA,MARIANA,MARCELA,LUANA,LUCIANA,LAIS,LAILA,LEILA,KAREN,KARINA,KEILA,KELLY,JAQUELINE,JANAINA,ISADORA,ISABELA,ISABELLA,HELOISA,HELEN,GIOVANA,GIOVANNA,GISELE,GISLAINE,EVELYN,ERICA,ELIANE,ELIANA,EDILAINE,EDNA,EDILENE,DEISE,DAIANE,DAIANA,CINTIA,CIBELE,BIANCA,BEATRIZ,BARBARA,ARIANE,ARIELLY,ALICE,ALESSANDRA,AGATHA,ABIGAIL,NATHALIA,NATHALIE,NATASHA,NICOLI,NICOLLE,NICOLE,RENATA,ROSANA,ROSANGELA,ROSELI,ROSE,RUTH,SABRINA,SAMARA,SAMANTHA,SARA,SARAH,SELMA,SILVANA,SIMONI,SONIA,SUELI,SUELLEN,SUSANA,TAIS,TAMARA,TAMIRES,TATIANE,TATIANA,TEREZA,THAMIRES,THAIS,VALERIA,VERA,VERONICA,WANESSA,YASMIN,ZENAIDE,RUTE,ESTER,NOEMI,MIRIAM,ANNA,JOCABED,VASTI,LIA,RACHEL,REBEKA,REBEKAH,DALILA,REGIANE,RENATA,ROSIANE,ROSIELE,SILVANA'.split(','));
+        const _eqNomesF = new Set('MARIA,ANA,JULIANA,ADRIANA,FERNANDA,PATRICIA,ALINE,SANDRA,CLAUDIA,DEBORA,CAMILA,BRUNA,AMANDA,LETICIA,JESSICA,LARISSA,NATALIA,VANESSA,SIMONE,CRISTIANE,CRISTINA,DANIELA,GABRIELA,KAROLINE,CAROLINE,CAROLINA,CAROL,CARLA,CARINA,VITORIA,VICTORIA,REBECA,RAQUEL,PRISCILA,PRISCILLA,PAULA,PAMELA,PALOMA,MILENA,MELISSA,MARIANA,MARCELA,LUANA,LUCIANA,LAIS,LAILA,LEILA,KAREN,KARINA,KEILA,KELLY,JAQUELINE,JANAINA,ISADORA,ISABELA,ISABELLA,HELOISA,HELEN,GIOVANA,GIOVANNA,GISELE,GISLAINE,EVELYN,ERICA,ELIANE,ELIANA,EDILAINE,EDNA,EDILENE,DEISE,DAIANE,DAIANA,CINTIA,CIBELE,BIANCA,BEATRIZ,BARBARA,ARIANE,ARIELLY,ALICE,ALESSANDRA,AGATHA,ABIGAIL,NATHALIA,NATHALIE,NATASHA,NICOLI,NICOLLE,NICOLE,RENATA,ROSANA,ROSANGELA,ROSELI,ROSE,RUTH,SABRINA,SAMARA,SAMANTHA,SARA,SARAH,SELMA,SILVANA,SIMONI,SONIA,SUELI,SUELLEN,SUSANA,TAIS,TAMARA,TAMIRES,TATIANE,TATIANA,TEREZA,THAMIRES,THAIS,VALERIA,VERA,VERONICA,WANESSA,YASMIN,ZENAIDE,RUTE,ESTER,NOEMI,MIRIAM,ANNA,JOCABED,VASTI,LIA,RACHEL,REBEKA,REBEKAH,DALILA,REGIANE,RENATA,ROSIANE,ROSIELE,SILVANA,ALANNA,NILZA'.split(','));
 
         function _eqGeneroNome(nomeCompleto) {
             const p = String(nomeCompleto || '').trim().split(/\s+/)[0]
@@ -3584,6 +3626,19 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 if (s) { _eqState = JSON.parse(s); return true; }
             } catch(_) {}
             return false;
+        }
+
+        let _eqEmojis = {};
+        function _eqEmojisKey() { return _eqStorageKey() + '_em'; }
+        function _eqSaveEmojis() {
+            try { localStorage.setItem(_eqEmojisKey(), JSON.stringify(_eqEmojis)); } catch(_) {}
+        }
+        function _eqLoadEmojis() {
+            try {
+                const s = localStorage.getItem(_eqEmojisKey());
+                if (s) { _eqEmojis = JSON.parse(s); return; }
+            } catch(_) {}
+            _eqEmojis = {};
         }
 
         // ── Equipes: modal de filtro por presença ────────────────
@@ -3669,12 +3724,15 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
 
             function colHtml(arr, eq, g, label, cls) {
-                const items = arr.map(nome =>
-                    `<div class="equipe-pessoa" draggable="true" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
+                const items = arr.map(nome => {
+                    const emoji = _eqEmojis[nome] || '';
+                    const emojiBtnContent = emoji || '<span class="equipe-emoji-ph">·</span>';
+                    return `<div class="equipe-pessoa" draggable="true" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
+                        <button class="equipe-emoji-btn" draggable="false" data-emoji-nome="${esc(nome)}" title="Emblema">${emojiBtnContent}</button>
                         <span class="equipe-pessoa-nome">${esc(nome)}</span>
-                        <button class="equipe-del-btn" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
-                    </div>`
-                ).join('');
+                        <button class="equipe-del-btn" draggable="false" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
+                    </div>`;
+                }).join('');
                 return `<div class="equipe-col ${cls}" data-eq="${eq}" data-g="${g}">
                     <div class="equipe-col-title">${label}</div>
                     ${items || '<span class="equipe-vazia">—</span>'}
@@ -3705,10 +3763,47 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             }).join('');
         }
 
-        // ── Equipes: drag & drop via event delegation ────────────
+        // ── Equipes: drag & drop + emoji picker via event delegation ─
         (function() {
             const grid = document.getElementById('equipesGrid');
             if (!grid) return;
+
+            // Picker de emoji
+            const _picker = document.getElementById('eqEmojiPicker');
+            let _pickerNome = null;
+
+            function _showPicker(nome, anchorEl) {
+                _pickerNome = nome;
+                const rect = anchorEl.getBoundingClientRect();
+                let top = rect.bottom + 4;
+                let left = rect.left;
+                if (left + 160 > window.innerWidth) left = window.innerWidth - 164;
+                _picker.style.top  = top  + 'px';
+                _picker.style.left = left + 'px';
+                _picker.classList.add('open');
+            }
+            function _hidePicker() {
+                _picker.classList.remove('open');
+                _pickerNome = null;
+            }
+
+            _picker.addEventListener('click', e => {
+                const btn = e.target.closest('button[data-pick]');
+                if (!btn) return;
+                const emoji = btn.dataset.pick;
+                if (_pickerNome !== null) {
+                    if (emoji) _eqEmojis[_pickerNome] = emoji;
+                    else delete _eqEmojis[_pickerNome];
+                    _eqSaveEmojis();
+                    _eqRenderGrid();
+                }
+                _hidePicker();
+            });
+
+            document.addEventListener('click', e => {
+                if (!_picker.classList.contains('open')) return;
+                if (!_picker.contains(e.target) && !e.target.closest('.equipe-emoji-btn')) _hidePicker();
+            }, true);
 
             grid.addEventListener('dragstart', e => {
                 const p = e.target.closest('.equipe-pessoa');
@@ -3749,6 +3844,14 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 _eqRenderGrid();
             });
             grid.addEventListener('click', e => {
+                const emojiBtn = e.target.closest('.equipe-emoji-btn');
+                if (emojiBtn) {
+                    e.stopPropagation();
+                    const nome = emojiBtn.dataset.emojiNome;
+                    if (_picker.classList.contains('open') && _pickerNome === nome) _hidePicker();
+                    else _showPicker(nome, emojiBtn);
+                    return;
+                }
                 const btn = e.target.closest('.equipe-del-btn');
                 if (!btn) return;
                 const { delNome: nome, delEq: eq, delG: g } = btn.dataset;
@@ -3799,6 +3902,7 @@ ${tabelas}
 
         // ── Equipes: ponto de entrada ────────────────────────────
         function renderizarEquipes() {
+            _eqLoadEmojis();
             const grid = document.getElementById('equipesGrid');
             if (!grid) return;
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
