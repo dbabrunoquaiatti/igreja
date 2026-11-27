@@ -709,10 +709,11 @@ def grex_login_post():
         _cleanup_sessions()
         tok = secrets.token_urlsafe(32)
         _sessions[tok] = {'ts': time.time(), 'email': user, 'senha': pwd}
+        _secure = request.is_secure
         if is_json:
             resp = Response(json.dumps({'ok': True}), content_type='application/json')
             resp.set_cookie('grex_session', tok, httponly=True,
-                            samesite='Lax', path='/', secure=True)
+                            samesite='Lax', path='/', secure=_secure)
             return resp
         # Form POST: retorna 200 com JS redirect — iOS Safari armazena o cookie
         # antes de navegar (302 pode não incluir o cookie no redirect imediato)
@@ -725,7 +726,7 @@ def grex_login_post():
             content_type='text/html; charset=utf-8'
         )
         resp.set_cookie('grex_session', tok, httponly=True,
-                        samesite='Lax', path='/', secure=True)
+                        samesite='Lax', path='/', secure=_secure)
         return resp
 
     if is_json:
