@@ -1540,6 +1540,12 @@
             transition: all 0.2s ease;
         }
         .equipes-toolbar-btn:hover { border-color: var(--purple-primary); color: var(--purple-primary); }
+        .equipes-toolbar-btn.eq-edit-active { background: var(--purple-primary); color: #fff; border-color: var(--purple-primary); }
+        .equipes-toolbar-btn.eq-edit-active:hover { background: var(--purple-light); border-color: var(--purple-light); color: #fff; }
+        .equipes-toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .eq-grid-locked .equipe-del-btn { display: none; }
+        .eq-grid-locked .equipe-emoji-btn { pointer-events: none; opacity: 0.35; }
+        .eq-grid-locked .equipe-pessoa { cursor: default; }
         .equipes-sem-config {
             background: var(--white);
             border: 1px solid var(--gray-border);
@@ -2004,12 +2010,13 @@
                 <div id="equipes" class="page-section">
                     <div class="discipulado-container" style="padding:24px">
                         <div class="equipes-toolbar">
-                            <button class="equipes-toolbar-btn" id="eqBtnRegerar">↺ Regenerar</button>
+                            <button class="equipes-toolbar-btn" id="eqBtnEditar">✏️ Editar</button>
+                            <button class="equipes-toolbar-btn" id="eqBtnRegerar" disabled>↺ Regenerar</button>
                             <button class="equipes-toolbar-btn" id="eqBtnPdf">📄 PDF</button>
                         </div>
                         <div class="eq-legenda">
                             <span class="eq-legenda-item">👑 Líder da equipe</span>
-                            <span class="eq-legenda-item">🛡️ Defesa</span>
+                            <span class="eq-legenda-item">🛡️ Líder</span>
                         </div>
                         <div id="equipesGrid" class="equipes-grid"></div>
                     </div>
@@ -2050,9 +2057,21 @@
 
     <div id="eqEmojiPicker" class="eq-emoji-picker">
         <button data-pick="👑" title="Líder da equipe">👑</button>
-        <button data-pick="🛡️" title="Defesa">🛡️</button>
+        <button data-pick="🛡️" title="Líder">🛡️</button>
         <button data-pick="🌾" title="Trigo">🌾</button>
         <button data-pick="" class="eq-pick-rem" title="Remover emblema">✕</button>
+    </div>
+
+    <div class="pwd-overlay" id="eqPwdOverlay">
+        <div class="pwd-modal">
+            <button class="grex-modal-close" id="eqPwdClose">✕</button>
+            <div class="pwd-modal-icon">✏️</div>
+            <div class="pwd-modal-title">Modo Edição</div>
+            <div class="pwd-modal-sub">Digite a senha para editar as equipes</div>
+            <input type="password" id="eqPwdInput" class="pwd-input" placeholder="Senha" autocomplete="off">
+            <div class="pwd-erro" id="eqPwdErro"></div>
+            <button class="pwd-confirmar-btn" id="eqPwdConfirmar">Entrar</button>
+        </div>
     </div>
 
     <div class="export-overlay" id="eqFiltroOverlay">
@@ -3609,8 +3628,9 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         }
 
         // ── Equipes: estado persistido ───────────────────────────
-        let _eqState = null;
-        let _eqDrag  = null;
+        let _eqState    = null;
+        let _eqDrag     = null;
+        let _eqEditMode = false;
 
         function _eqStorageKey() {
             const eq = (window.CONFIG.EQUIPES || '').replace(/\s/g, '');
@@ -3727,7 +3747,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 const items = arr.map(nome => {
                     const emoji = _eqEmojis[nome] || '';
                     const emojiBtnContent = emoji || '<span class="equipe-emoji-ph">·</span>';
-                    return `<div class="equipe-pessoa" draggable="true" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
+                    return `<div class="equipe-pessoa" draggable="${_eqEditMode}" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
                         <button class="equipe-emoji-btn" draggable="false" data-emoji-nome="${esc(nome)}" title="Emblema">${emojiBtnContent}</button>
                         <span class="equipe-pessoa-nome">${esc(nome)}</span>
                         <button class="equipe-del-btn" draggable="false" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
@@ -3739,6 +3759,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 </div>`;
             }
 
+            grid.classList.toggle('eq-grid-locked', !_eqEditMode);
             grid.innerHTML = configEquipes.map(nomeConfig => {
                 const chave = nomeConfig.toUpperCase();
                 const d = _eqState[chave] || { M:[], F:[], U:[] };
@@ -3807,7 +3828,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
             grid.addEventListener('dragstart', e => {
                 const p = e.target.closest('.equipe-pessoa');
-                if (!p) return;
+                if (!p || !_eqEditMode) return;
                 _eqDrag = { nome: p.dataset.nome, eq: p.dataset.eq, g: p.dataset.g };
                 e.dataTransfer.effectAllowed = 'move';
                 setTimeout(() => p.classList.add('eq-dragging'), 0);
@@ -3863,34 +3884,82 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         })();
 
         // ── Equipes: botões toolbar ──────────────────────────────
+        (function() {
+            const btnEditar  = document.getElementById('eqBtnEditar');
+            const btnRegerar = document.getElementById('eqBtnRegerar');
+            const overlay    = document.getElementById('eqPwdOverlay');
+            const input      = document.getElementById('eqPwdInput');
+            const erro       = document.getElementById('eqPwdErro');
+
+            function setEditMode(on) {
+                _eqEditMode = on;
+                btnEditar.classList.toggle('eq-edit-active', on);
+                btnEditar.textContent = on ? '✓ Editar' : '✏️ Editar';
+                btnRegerar.disabled = !on;
+                _eqRenderGrid();
+            }
+
+            btnEditar.addEventListener('click', () => {
+                if (_eqEditMode) { setEditMode(false); return; }
+                const pwd = window.CONFIG && window.CONFIG.PWDQRCODESEND;
+                if (!pwd) { setEditMode(true); return; } // sem senha configurada
+                input.value = '';
+                erro.textContent = '';
+                overlay.classList.add('show');
+                setTimeout(() => input.focus(), 100);
+            });
+
+            document.getElementById('eqPwdClose').addEventListener('click', () => overlay.classList.remove('show'));
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('show'); });
+
+            function tentarSenha() {
+                const pwd = window.CONFIG && window.CONFIG.PWDQRCODESEND;
+                if (input.value === pwd) {
+                    overlay.classList.remove('show');
+                    setEditMode(true);
+                } else {
+                    erro.textContent = 'Senha incorreta';
+                    input.value = '';
+                    input.focus();
+                }
+            }
+            document.getElementById('eqPwdConfirmar').addEventListener('click', tentarSenha);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') tentarSenha(); });
+        })();
+
         document.getElementById('eqBtnRegerar').addEventListener('click', () => {
-            if (!allData || !allData.length) return;
+            if (!_eqEditMode || !allData || !allData.length) return;
             _eqPerguntarFiltro(ap => _eqGerarComAnimacao(ap));
         });
         document.getElementById('eqBtnPdf').addEventListener('click', () => {
             if (!_eqState) { alert('Nenhuma equipe gerada.'); return; }
             const configEquipes = (window.CONFIG.EQUIPES||'').split(',').map(s=>s.trim()).filter(Boolean);
-            const tabelas = configEquipes.map(nomeConfig => {
+            const EMOJI_LABEL = { '👑': ' 👑', '🛡️': ' 🛡️', '🌾': ' 🌾' };
+            const tabelas = configEquipes.map((nomeConfig, idx, arr) => {
                 const chave = nomeConfig.toUpperCase();
                 const d = _eqState[chave] || {M:[],F:[],U:[]};
                 const mulheres = [...d.F, ...d.U];
                 const total = d.M.length + mulheres.length;
                 const mx = Math.max(d.M.length, mulheres.length, 1);
+                const fmtNome = nome => nome ? esc(nome) + (EMOJI_LABEL[_eqEmojis[nome]] || '') : '';
                 let rows = '';
                 for(let i=0;i<mx;i++)
-                    rows += `<tr><td>${esc(d.M[i]||'')}</td><td>${esc(mulheres[i]||'')}</td></tr>`;
+                    rows += `<tr><td>${fmtNome(d.M[i])}</td><td>${fmtNome(mulheres[i])}</td></tr>`;
                 const cor = _eqCor(chave);
-                return `<div style="margin-bottom:20px;break-inside:avoid">
-                    <div style="background:${cor};color:#fff;padding:8px 14px;font-family:Poppins,sans-serif;font-size:14px;font-weight:700;border-radius:6px 6px 0 0">
+                const pageBreak = idx < arr.length - 1 ? 'page-break-after:always' : '';
+                return `<div style="${pageBreak}">
+                    <div style="background:${cor};color:#fff;padding:12px 16px;font-family:Poppins,sans-serif;font-size:16px;font-weight:700;border-radius:6px 6px 0 0">
                         ${esc(nomeConfig)} &mdash; ${total} pessoas &nbsp;|&nbsp; ♂ ${d.M.length} &nbsp;♀ ${mulheres.length}
                     </div>
                     <table><thead><tr><th>♂ Homens</th><th>♀ Mulheres</th></tr></thead><tbody>${rows}</tbody></table>
+                    <div style="margin-top:12px;font-size:11px;color:#6b7280">👑 Líder da equipe &nbsp;&nbsp; 🛡️ Líder &nbsp;&nbsp; 🌾 Trigo</div>
                 </div>`;
             }).join('');
             abrirRelatorio(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <title>Equipes</title>${estiloRelatorio}
-<style>h1{text-align:center;font-size:16px;font-weight:700;margin-bottom:4px;color:#6b46c1}
-thead tr{background:#f3f4f6}th,td{padding:6px 10px;border:1px solid #e5e7eb;font-size:12px}
+<style>h1{text-align:center;font-size:18px;font-weight:700;margin-bottom:4px;color:#6b46c1}
+thead tr{background:#f3f4f6}th,td{padding:8px 12px;border:1px solid #e5e7eb;font-size:13px}
+table{width:100%;border-collapse:collapse}
 </style></head><body>
 <h1>Equipes — Encontro</h1>
 <div class="subtitle">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
