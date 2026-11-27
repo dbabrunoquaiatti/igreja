@@ -290,6 +290,7 @@ SCRIPT_SONS = r"""
     }
     .grex-card.sucesso { background:#14532d; }
     .grex-card.erro    { background:#7f1d1d; }
+    .grex-card.aviso   { background:#78350f; }
     .grex-circulo {
       width:120px; height:120px; border-radius:50%;
       display:flex; align-items:center; justify-content:center;
@@ -297,6 +298,7 @@ SCRIPT_SONS = r"""
     }
     .sucesso .grex-circulo { background:#22c55e; }
     .erro    .grex-circulo { background:#ef4444; }
+    .aviso   .grex-circulo { background:#f59e0b; }
     .grex-path {
       stroke-dasharray:100; stroke-dashoffset:100;
       animation:grex-draw 0.45s 0.1s ease forwards;
@@ -316,6 +318,13 @@ SCRIPT_SONS = r"""
       cursor:pointer; letter-spacing:0.3px;
     }
     .grex-btn:active { opacity:0.85; }
+    .grex-fechar {
+      position:absolute; top:20px; right:28px;
+      background:none; border:none;
+      color:rgba(255,255,255,0.55); font-size:36px; line-height:1;
+      cursor:pointer; padding:8px; -webkit-tap-highlight-color:transparent;
+    }
+    .grex-fechar:hover,.grex-fechar:active { color:#fff; }
   `;
 
   function injetarCSS() {
@@ -340,6 +349,7 @@ SCRIPT_SONS = r"""
     const d = document.createElement('div');
     d.id = 'grex-overlay';
     d.innerHTML = `
+      <button class="grex-fechar">&#x2715;</button>
       <div class="grex-card sucesso">
         <div class="grex-circulo">
           <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
@@ -351,6 +361,29 @@ SCRIPT_SONS = r"""
         </div>
         <div class="grex-titulo">Check-in realizado!</div>
         <div class="grex-sub">Fechando em 5 segundos…</div>
+      </div>`;
+    d.addEventListener('click', fecharOverlay);
+    document.body.appendChild(d);
+    setTimeout(fecharOverlay, 5000);
+  }
+
+  function mostrarJaFeito() {
+    injetarCSS(); fecharOverlay();
+    const d = document.createElement('div');
+    d.id = 'grex-overlay';
+    d.innerHTML = `
+      <div class="grex-card aviso">
+        <div class="grex-circulo">
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <path class="grex-path" pathLength="100"
+              d="M28 18 L28 32" stroke="white" stroke-width="5.5"
+              stroke-linecap="round"/>
+            <circle cx="28" cy="41" r="3" fill="white"/>
+          </svg>
+        </div>
+        <div class="grex-titulo">QR Code já escaneado</div>
+        <div class="grex-sub">Este QR Code já foi escaneado</div>
+        <div class="grex-sub" style="margin-top:12px;font-size:13px;opacity:0.5">Fechando em 5 segundos…</div>
       </div>`;
     d.addEventListener('click', fecharOverlay);
     document.body.appendChild(d);
@@ -403,18 +436,23 @@ SCRIPT_SONS = r"""
     const eSucesso =
       txt.includes('sucesso') || txt.includes('realizado') ||
       txt.includes('confirmad') || txt.includes('efetuado');
+    const eJaFeito =
+      txt.includes('já fez') || txt.includes('ja fez');
     const eErro =
       txt.includes('erro') || txt.includes('error') ||
       txt.includes('inv') || txt.includes('nao encontrado') ||
       txt.includes('não encontrado') || txt.includes('falha') ||
       txt.includes('nao foi') || txt.includes('não foi') ||
       txt.includes('fail') || txt.includes('encontramos') ||
-      txt.includes('já fez') || txt.includes('ja fez') ||
       txt.includes('confira');
     if (eSucesso) {
       ultimoDisparo = agora;
       tocarSucesso();
       mostrarSucesso();
+    } else if (eJaFeito) {
+      ultimoDisparo = agora;
+      tocarErro();
+      mostrarJaFeito();
     } else if (eErro) {
       ultimoDisparo = agora;
       tocarErro();
