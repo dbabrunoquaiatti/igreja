@@ -2477,7 +2477,7 @@
                     renderizarDiscipulado();
                     renderizarRede();
                     renderizarResumoDados();
-                    renderizarEquipes();
+                    if (abaAtiva === 'equipes') renderizarEquipes();
                     atualizarTimestamp();
                 }
             });
@@ -3589,11 +3589,11 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         // ── Equipes: modal de filtro por presença ────────────────
         function _eqPerguntarFiltro(cb) {
             const overlay = document.getElementById('eqFiltroOverlay');
-            overlay.style.display = 'flex';
+            overlay.classList.add('show');
             function onPresentes() { cleanup(); cb(true); }
             function onTodos()     { cleanup(); cb(false); }
             function cleanup() {
-                overlay.style.display = 'none';
+                overlay.classList.remove('show');
                 document.getElementById('eqFiltroBtnPresentes').removeEventListener('click', onPresentes);
                 document.getElementById('eqFiltroBtnTodos').removeEventListener('click', onTodos);
             }
@@ -3844,6 +3844,8 @@ ${tabelas}
                 document.getElementById(pageName).classList.add('active');
                 const titulos = {'resumo':'Relatório de Inscritos','discipulado':'Análise por Discipulado','rede':'Análise por Rede','dados':'Dados Completos','cronograma':'Cronograma do Encontro','sorteio':'Sorteio','equipes':'Equipes'};
                 document.getElementById('pageTitle').textContent = titulos[pageName] || 'Dashboard';
+
+                if (pageName === 'equipes') renderizarEquipes();
 
                 // Atualizar timestamp baseado na aba
                 if (pageName === 'cronograma') {
