@@ -402,7 +402,7 @@
             word-break: break-all;
             max-width: 100%;
         }
-        .content { flex: 1; overflow-y: auto; padding: 24px; }
+        .content { flex: 1; overflow-y: auto; padding: 24px; min-height: 0; }
         .page-section { display: none; }
         .page-section.active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn {
@@ -1446,8 +1446,8 @@
         .equipe-badge.h { background: #dbeafe; color: #1d4ed8; }
         .equipe-badge.m { background: #fce7f3; color: #9d174d; }
         .equipe-badge.total { background: var(--lighter-gray); color: var(--text-light); }
-        .equipe-body { display: flex; }
-        .equipe-col { flex: 1; padding: 12px 16px; }
+        .equipe-body { display: flex; overflow-x: auto; }
+        .equipe-col { flex: 1; min-width: 150px; padding: 12px 16px; }
         .equipe-col + .equipe-col { border-left: 1px solid var(--gray-border); }
         .equipe-col-title {
             font-family: 'Poppins', sans-serif;
@@ -1475,7 +1475,7 @@
         .equipe-pessoa:last-child { border-bottom: none; }
         .equipe-pessoa:hover { background: var(--lighter-gray); }
         .equipe-pessoa.eq-dragging { opacity: 0.35; }
-        .equipe-pessoa-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .equipe-pessoa-nome { flex: 1; min-width: 0; word-break: break-word; }
         .equipe-del-btn {
             flex-shrink: 0;
             background: none; border: none;
@@ -1501,6 +1501,16 @@
         }
         .equipe-emoji-btn:hover { background: var(--gray-border); }
         .equipe-emoji-ph { font-size: 11px; color: var(--text-lighter); }
+        .equipe-pres-btn {
+            flex-shrink: 0;
+            background: none; border: none;
+            cursor: pointer; font-size: 14px; line-height: 1;
+            padding: 2px 2px; border-radius: 4px;
+            min-width: 20px; text-align: center;
+            transition: background 0.15s;
+        }
+        .equipe-pres-btn:hover { background: var(--gray-border); }
+        .equipe-pres-ph { font-size: 10px; color: var(--text-lighter); }
         .eq-emoji-picker {
             position: fixed;
             z-index: 3100;
@@ -1544,7 +1554,6 @@
         .equipes-toolbar-btn.eq-edit-active:hover { background: var(--purple-light); border-color: var(--purple-light); color: #fff; }
         .equipes-toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .eq-grid-locked .equipe-del-btn { display: none; }
-        .eq-grid-locked .equipe-emoji-btn { pointer-events: none; opacity: 0.35; }
         .eq-grid-locked .equipe-pessoa { cursor: default; }
         .equipes-sem-config {
             background: var(--white);
@@ -2017,6 +2026,7 @@
                         <div class="eq-legenda">
                             <span class="eq-legenda-item">👑 Líder da equipe</span>
                             <span class="eq-legenda-item">🛡️ Líder</span>
+                            <span class="eq-legenda-item">🌾 Servo</span>
                         </div>
                         <div id="equipesGrid" class="equipes-grid"></div>
                     </div>
@@ -2058,7 +2068,7 @@
     <div id="eqEmojiPicker" class="eq-emoji-picker">
         <button data-pick="👑" title="Líder da equipe">👑</button>
         <button data-pick="🛡️" title="Líder">🛡️</button>
-        <button data-pick="🌾" title="Trigo">🌾</button>
+        <button data-pick="🌾" title="Servo">🌾</button>
         <button data-pick="" class="eq-pick-rem" title="Remover emblema">✕</button>
     </div>
 
@@ -3661,6 +3671,19 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             _eqEmojis = {};
         }
 
+        let _eqPresence = {};
+        function _eqPresenceKey() { return _eqStorageKey() + '_pr'; }
+        function _eqSavePresence() {
+            try { localStorage.setItem(_eqPresenceKey(), JSON.stringify(_eqPresence)); } catch(_) {}
+        }
+        function _eqLoadPresence() {
+            try {
+                const s = localStorage.getItem(_eqPresenceKey());
+                if (s) { _eqPresence = JSON.parse(s); return; }
+            } catch(_) {}
+            _eqPresence = {};
+        }
+
         // ── Equipes: modal de filtro por presença ────────────────
         function _eqPerguntarFiltro(cb) {
             const overlay = document.getElementById('eqFiltroOverlay');
@@ -3740,14 +3763,19 @@ thead tr{background:#ef4444;color:white}</style></head><body>
 
         function _eqRenderGrid() {
             const grid = document.getElementById('equipesGrid');
-            if (!grid || !_eqState) return;
+            if (!grid) return;
+            grid.classList.toggle('eq-grid-locked', !_eqEditMode);
+            if (!_eqState) return;
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
 
             function colHtml(arr, eq, g, label, cls) {
                 const items = arr.map(nome => {
                     const emoji = _eqEmojis[nome] || '';
                     const emojiBtnContent = emoji || '<span class="equipe-emoji-ph">·</span>';
+                    const pres = _eqPresence[nome];
+                    const presBtnContent = pres === true ? '✅' : pres === false ? '❌' : '<span class="equipe-pres-ph">·</span>';
                     return `<div class="equipe-pessoa" draggable="${_eqEditMode}" data-nome="${esc(nome)}" data-eq="${eq}" data-g="${g}">
+                        <button class="equipe-pres-btn" draggable="false" data-pres-nome="${esc(nome)}" title="Presença">${presBtnContent}</button>
                         <button class="equipe-emoji-btn" draggable="false" data-emoji-nome="${esc(nome)}" title="Emblema">${emojiBtnContent}</button>
                         <span class="equipe-pessoa-nome">${esc(nome)}</span>
                         <button class="equipe-del-btn" draggable="false" data-del-nome="${esc(nome)}" data-del-eq="${eq}" data-del-g="${g}" title="Remover">×</button>
@@ -3759,7 +3787,6 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 </div>`;
             }
 
-            grid.classList.toggle('eq-grid-locked', !_eqEditMode);
             grid.innerHTML = configEquipes.map(nomeConfig => {
                 const chave = nomeConfig.toUpperCase();
                 const d = _eqState[chave] || { M:[], F:[], U:[] };
@@ -3769,16 +3796,16 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                     <div class="equipe-header" style="border-top:4px solid ${cor}">
                         <span class="equipe-nome" style="color:${cor}">${esc(nomeConfig)}</span>
                         <div class="equipe-badges">
-                            <span class="equipe-badge h">♂ ${d.M.length}</span>
-                            <span class="equipe-badge m">♀ ${d.F.length}</span>
-                            ${temU ? `<span class="equipe-badge total">? ${d.U.length}</span>` : ''}
+                            <span class="equipe-badge h">${d.M.length}</span>
+                            <span class="equipe-badge m">${d.F.length}</span>
+                            ${temU ? `<span class="equipe-badge total">${d.U.length}</span>` : ''}
                             <span class="equipe-badge total">${d.M.length+d.F.length+d.U.length}</span>
                         </div>
                     </div>
                     <div class="equipe-body">
-                        ${colHtml(d.M, chave,'M','♂ Homens','h')}
-                        ${colHtml(d.F, chave,'F','♀ Mulheres','m')}
-                        ${temU ? colHtml(d.U, chave,'U','? Sem gênero','u') : ''}
+                        ${colHtml(d.M, chave,'M','Homens','h')}
+                        ${colHtml(d.F, chave,'F','Mulheres','m')}
+                        ${temU ? colHtml(d.U, chave,'U','Sem gênero','u') : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -3865,6 +3892,18 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 _eqRenderGrid();
             });
             grid.addEventListener('click', e => {
+                const presBtn = e.target.closest('.equipe-pres-btn');
+                if (presBtn) {
+                    e.stopPropagation();
+                    const nome = presBtn.dataset.presNome;
+                    const cur = _eqPresence[nome];
+                    if (cur === undefined || cur === null) _eqPresence[nome] = true;
+                    else if (cur === true) _eqPresence[nome] = false;
+                    else delete _eqPresence[nome];
+                    _eqSavePresence();
+                    _eqRenderGrid();
+                    return;
+                }
                 const emojiBtn = e.target.closest('.equipe-emoji-btn');
                 if (emojiBtn) {
                     e.stopPropagation();
@@ -3934,14 +3973,22 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         document.getElementById('eqBtnPdf').addEventListener('click', () => {
             if (!_eqState) { alert('Nenhuma equipe gerada.'); return; }
             const configEquipes = (window.CONFIG.EQUIPES||'').split(',').map(s=>s.trim()).filter(Boolean);
-            const EMOJI_LABEL = { '👑': ' 👑', '🛡️': ' 🛡️', '🌾': ' 🌾' };
+            const EMOJI_LEGEND = { '👑': 'Líder da equipe', '🛡️': 'Líder', '🌾': 'Servo' };
+            const PILL = 'display:inline-block;background:#ede9fe;color:#6b46c1;border-radius:20px;padding:2px 9px;font-size:10px;white-space:nowrap;margin-left:6px;font-weight:600;';
+            const fmtNome = nome => {
+                if (!nome) return '';
+                const em = _eqEmojis[nome];
+                const lbl = em && EMOJI_LEGEND[em];
+                return esc(nome) + (lbl ? `<span style="${PILL}">${em} ${lbl}</span>` : '');
+            };
+            const legendaPills = Object.entries(EMOJI_LEGEND)
+                .map(([em, lbl]) => `<span style="${PILL}">${em} ${lbl}</span>`).join(' ');
             const tabelas = configEquipes.map((nomeConfig, idx, arr) => {
                 const chave = nomeConfig.toUpperCase();
                 const d = _eqState[chave] || {M:[],F:[],U:[]};
                 const mulheres = [...d.F, ...d.U];
                 const total = d.M.length + mulheres.length;
                 const mx = Math.max(d.M.length, mulheres.length, 1);
-                const fmtNome = nome => nome ? esc(nome) + (EMOJI_LABEL[_eqEmojis[nome]] || '') : '';
                 let rows = '';
                 for(let i=0;i<mx;i++)
                     rows += `<tr><td>${fmtNome(d.M[i])}</td><td>${fmtNome(mulheres[i])}</td></tr>`;
@@ -3949,10 +3996,10 @@ thead tr{background:#ef4444;color:white}</style></head><body>
                 const pageBreak = idx < arr.length - 1 ? 'page-break-after:always' : '';
                 return `<div style="${pageBreak}">
                     <div style="background:${cor};color:#fff;padding:12px 16px;font-family:Poppins,sans-serif;font-size:16px;font-weight:700;border-radius:6px 6px 0 0">
-                        ${esc(nomeConfig)} &mdash; ${total} pessoas &nbsp;|&nbsp; ♂ ${d.M.length} &nbsp;♀ ${mulheres.length}
+                        ${esc(nomeConfig)} &mdash; ${total} pessoas &nbsp;|&nbsp; H: ${d.M.length} &nbsp;M: ${mulheres.length}
                     </div>
-                    <table><thead><tr><th>♂ Homens</th><th>♀ Mulheres</th></tr></thead><tbody>${rows}</tbody></table>
-                    <div style="margin-top:12px;font-size:11px;color:#6b7280">👑 Líder da equipe &nbsp;&nbsp; 🛡️ Líder &nbsp;&nbsp; 🌾 Trigo</div>
+                    <table><thead><tr><th>Homens</th><th>Mulheres</th></tr></thead><tbody>${rows}</tbody></table>
+                    <div style="margin-top:10px;font-size:11px;color:#6b7280">Legenda: ${legendaPills}</div>
                 </div>`;
             }).join('');
             abrirRelatorio(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
@@ -3972,6 +4019,7 @@ ${tabelas}
         // ── Equipes: ponto de entrada ────────────────────────────
         function renderizarEquipes() {
             _eqLoadEmojis();
+            _eqLoadPresence();
             const grid = document.getElementById('equipesGrid');
             if (!grid) return;
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
