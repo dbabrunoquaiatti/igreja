@@ -236,20 +236,31 @@ SCRIPT_SONS = r"""
   if (window.__grexAlertaInstalado) return;
   window.__grexAlertaInstalado = true;
 
+  // ── Áudio ──────────────────────────────────────────────────────────────────
+  // Browsers bloqueiam AudioContext sem gesto do usuário.
+  // Pré-inicializamos no primeiro keydown/click/touchstart (leitor de código = teclado).
   let audioCtx = null;
   function getCtx() {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     return audioCtx;
   }
+  function _primeiroGesto() { try { getCtx(); } catch(e) {} }
+  document.addEventListener('keydown',    _primeiroGesto, {once: true, capture: true});
+  document.addEventListener('click',      _primeiroGesto, {once: true, capture: true});
+  document.addEventListener('touchstart', _primeiroGesto, {once: true, capture: true});
+
   function tocarTom(freq, dur, tipo, vol, atraso) {
-    const ctx = getCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = tipo; osc.frequency.value = freq; gain.gain.value = vol;
-    osc.connect(gain); gain.connect(ctx.destination);
-    const t = ctx.currentTime + atraso / 1000;
-    osc.start(t); osc.stop(t + dur / 1000);
+    try {
+      const ctx = getCtx();
+      if (ctx.state !== 'running') return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = tipo; osc.frequency.value = freq; gain.gain.value = vol;
+      osc.connect(gain); gain.connect(ctx.destination);
+      const t = ctx.currentTime + atraso / 1000;
+      osc.start(t); osc.stop(t + dur / 1000);
+    } catch(e) {}
   }
   function tocarSucesso() {
     tocarTom(523, 100, 'sine', 0.455, 0);
@@ -375,16 +386,34 @@ SCRIPT_SONS = r"""
   let ultimoDisparo = 0;
   const INTERVALO_MIN_MS = 2000;
 
+  // Seletores para diferentes versões do Angular Material / MDC
+  const SNACK_SEL = [
+    '.mat-mdc-snack-bar-label',
+    '.mdc-snackbar__label',
+    '.mat-simple-snackbar',
+    '.mat-snack-bar-container',
+    'snack-bar-container',
+  ].join(',');
+
   function verificarLabel(el) {
     const agora = Date.now();
     if (agora - ultimoDisparo < INTERVALO_MIN_MS) return;
     const txt = (el.innerText || el.textContent || '').toLowerCase().trim();
     if (!txt) return;
-    if (txt.includes('sucesso')) {
+    const eSucesso =
+      txt.includes('sucesso') || txt.includes('realizado') ||
+      txt.includes('confirmad') || txt.includes('efetuado');
+    const eErro =
+      txt.includes('erro') || txt.includes('error') ||
+      txt.includes('inv') || txt.includes('nao encontrado') ||
+      txt.includes('não encontrado') || txt.includes('falha') ||
+      txt.includes('nao foi') || txt.includes('não foi') ||
+      txt.includes('fail');
+    if (eSucesso) {
       ultimoDisparo = agora;
       tocarSucesso();
       mostrarSucesso();
-    } else if (txt.includes('erro') || txt.includes('error') || txt.includes('inv') || txt.includes('nao encontrado') || txt.includes('não encontrado')) {
+    } else if (eErro) {
       ultimoDisparo = agora;
       tocarErro();
       mostrarErro(el.innerText || el.textContent || '');
@@ -395,13 +424,15 @@ SCRIPT_SONS = r"""
     for (const m of mutacoes) {
       for (const node of m.addedNodes) {
         if (node.nodeType !== 1) continue;
-        if (node.matches && node.matches('.mat-mdc-snack-bar-label')) {
-          verificarLabel(node);
+        if (node.matches) {
+          try { if (node.matches(SNACK_SEL)) { verificarLabel(node); continue; } } catch(e) {}
         }
         if (node.querySelectorAll) {
-          for (const label of node.querySelectorAll('.mat-mdc-snack-bar-label')) {
-            verificarLabel(label);
-          }
+          try {
+            for (const label of node.querySelectorAll(SNACK_SEL)) {
+              verificarLabel(label);
+            }
+          } catch(e) {}
         }
       }
     }
