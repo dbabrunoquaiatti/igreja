@@ -1493,6 +1493,10 @@
             border-radius: 8px;
         }
         .equipe-vazia { font-size: 12px; color: var(--text-lighter); font-style: italic; }
+        .eq-loading-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 20px; gap:16px; }
+        .eq-spinner { width:40px; height:40px; border:4px solid var(--gray-border); border-top-color:var(--purple-primary); border-radius:50%; animation:eq-spin 0.75s linear infinite; }
+        @keyframes eq-spin { to { transform:rotate(360deg); } }
+        .eq-loading-txt { font-size:14px; color:var(--text-light); font-family:'Poppins',sans-serif; font-weight:500; }
         .equipes-toolbar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
         .equipes-toolbar-btn {
             padding: 8px 18px;
@@ -2006,6 +2010,23 @@
             <button class="grex-modal-close" id="adminModalClose">✕</button>
             <div class="admin-modal-icon">🔒</div>
             <div class="admin-modal-text">Contate o Administrador do sistema</div>
+        </div>
+    </div>
+
+    <div class="export-overlay" id="eqFiltroOverlay">
+        <div class="export-modal">
+            <div class="export-modal-title">Gerar Equipes</div>
+            <div class="export-modal-sub">Quem incluir na distribuição?</div>
+            <div class="export-btn-group">
+                <button class="export-btn" id="eqFiltroBtnPresentes">
+                    <span class="export-btn-icon">✅</span>
+                    Apenas presentes
+                </button>
+                <button class="export-btn" id="eqFiltroBtnTodos">
+                    <span class="export-btn-icon">👥</span>
+                    Todos os inscritos
+                </button>
+            </div>
         </div>
     </div>
 
@@ -3565,17 +3586,44 @@ thead tr{background:#ef4444;color:white}</style></head><body>
             return false;
         }
 
+        // ── Equipes: modal de filtro por presença ────────────────
+        function _eqPerguntarFiltro(cb) {
+            const overlay = document.getElementById('eqFiltroOverlay');
+            overlay.style.display = 'flex';
+            function onPresentes() { cleanup(); cb(true); }
+            function onTodos()     { cleanup(); cb(false); }
+            function cleanup() {
+                overlay.style.display = 'none';
+                document.getElementById('eqFiltroBtnPresentes').removeEventListener('click', onPresentes);
+                document.getElementById('eqFiltroBtnTodos').removeEventListener('click', onTodos);
+            }
+            document.getElementById('eqFiltroBtnPresentes').addEventListener('click', onPresentes);
+            document.getElementById('eqFiltroBtnTodos').addEventListener('click', onTodos);
+        }
+
+        function _eqGerarComAnimacao(apenasPresentes) {
+            const grid = document.getElementById('equipesGrid');
+            if (grid) grid.innerHTML = '<div class="eq-loading-wrap"><div class="eq-spinner"></div><div class="eq-loading-txt">Gerando equipes...</div></div>';
+            setTimeout(() => { _eqGerarNovo(apenasPresentes); _eqRenderGrid(); }, 60);
+        }
+
         // ── Equipes: gerar distribuição automática ───────────────
-        function _eqGerarNovo() {
+        function _eqGerarNovo(apenasPresentes) {
             const configEquipes = (window.CONFIG.EQUIPES || '').split(',').map(s => s.trim()).filter(Boolean);
             const eqs = configEquipes.map(e => e.toUpperCase());
             _eqState = {};
             eqs.forEach(e => { _eqState[e] = { M: [], F: [], U: [] }; });
 
-            const servos = (allData || []).filter(item => {
+            let servos = (allData || []).filter(item => {
                 const t = String(item.tipoInscricao || '').toLowerCase().trim();
                 return !t.includes('convidado') && !t.includes('encontrista') && !t.includes('guest');
             });
+            if (apenasPresentes) {
+                servos = servos.filter(item => {
+                    const p = String(item.presenca || '').toLowerCase().trim();
+                    return p === 'sim' || p === 'yes' || p === 'true' || p === '1' || p === 'x' || p === 'presente' || p === 'confirmado';
+                });
+            }
 
             const temCol = servos.some(p => p.equipe && p.equipe.trim());
 
@@ -3714,8 +3762,7 @@ thead tr{background:#ef4444;color:white}</style></head><body>
         // ── Equipes: botões toolbar ──────────────────────────────
         document.getElementById('eqBtnRegerar').addEventListener('click', () => {
             if (!allData || !allData.length) return;
-            _eqGerarNovo();
-            _eqRenderGrid();
+            _eqPerguntarFiltro(ap => _eqGerarComAnimacao(ap));
         });
         document.getElementById('eqBtnPdf').addEventListener('click', () => {
             if (!_eqState) { alert('Nenhuma equipe gerada.'); return; }
@@ -3763,13 +3810,16 @@ ${tabelas}
                 grid.innerHTML = '<div class="equipes-sem-config">Nenhum dado carregado.</div>';
                 return;
             }
-            // Usar estado salvo; se não existir ou as equipes mudaram, gerar novo
+            // Se há estado salvo e válido, apenas renderiza
             const eqs = configEquipes.map(e => e.toUpperCase());
-            const estadoValido = _eqState && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
-            if (!estadoValido && !_eqLoad()) _eqGerarNovo();
-            const estadoAposLoad = _eqState && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
-            if (!estadoAposLoad) _eqGerarNovo();
-            _eqRenderGrid();
+            const estadoMemoria = _eqState && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
+            const estadoStorage = !estadoMemoria && _eqLoad() && eqs.every(e => Object.prototype.hasOwnProperty.call(_eqState, e));
+            if (estadoMemoria || estadoStorage) {
+                _eqRenderGrid();
+                return;
+            }
+            // Nenhum estado salvo: perguntar filtro e gerar
+            _eqPerguntarFiltro(ap => _eqGerarComAnimacao(ap));
         }
 
         // Toggle do menu
