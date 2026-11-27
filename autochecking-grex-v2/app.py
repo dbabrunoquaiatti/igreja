@@ -37,7 +37,7 @@ def _session_ok():
 
 @app.before_request
 def _proxy_auth():
-    if request.path.startswith('/grex-login'):
+    if request.path.startswith('/grex-login') or request.path == '/favicon.ico':
         return
     if _session_ok():
         return
